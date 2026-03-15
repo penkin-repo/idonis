@@ -91,28 +91,54 @@ def add_task(telegram_id: int, date: str, task: dict):
     ref.set({"items": firestore.ArrayUnion([task])}, merge=True)
 
 
-def complete_task(telegram_id: int, date: str, task_id: str):
-    ref = get_user_ref(telegram_id).collection("tasks").document(date)
-    doc = ref.get()
-    if doc.exists:
-        items = doc.to_dict().get("items", [])
-        updated = [
-            {**t, "done": True} if t.get("id") == task_id else t
-            for t in items
-        ]
-        ref.set({"items": updated}, merge=True)
+@firestore.transactional
+def _complete_txn(transaction, ref, task_id):
+    doc = ref.get(transaction=transaction)
+    if not doc.exists: return
+    items = doc.to_dict().get("items", [])
+    updated = False
+    for t in items:
+        if t.get("id") == task_id:
+            t["done"] = True
+            updated = True
+    if updated:
+        transaction.update(ref, {"items": items})
 
+def complete_task(telegram_id: int, date: str, task_id: str):
+    db = get_db()
+    ref = get_user_ref(telegram_id).collection("tasks").document(date)
+    _complete_txn(db.transaction(), ref, task_id)
+
+
+@firestore.transactional
+def _toggle_txn(transaction, ref, task_id):
+    doc = ref.get(transaction=transaction)
+    if not doc.exists: return
+    items = doc.to_dict().get("items", [])
+    updated = False
+    for t in items:
+        if t.get("id") == task_id:
+            t["done"] = not t.get("done", False)
+            updated = True
+    if updated:
+        transaction.update(ref, {"items": items})
 
 def toggle_task(telegram_id: int, date: str, task_id: str):
+    db = get_db()
+    ref = get_user_ref(telegram_id).collection("tasks").document(date)
+    _toggle_txn(db.transaction(), ref, task_id)
+
+
+def complete_all_tasks(telegram_id: int, date: str):
+    """Mark all tasks for a specific date as done."""
     ref = get_user_ref(telegram_id).collection("tasks").document(date)
     doc = ref.get()
     if doc.exists:
         items = doc.to_dict().get("items", [])
-        updated = [
-            {**t, "done": not t.get("done", False)} if t.get("id") == task_id else t
-            for t in items
-        ]
-        ref.set({"items": updated}, merge=True)
+        for t in items:
+            t["done"] = True
+        ref.set({"items": items}, merge=True)
+
 
 
 
@@ -149,16 +175,24 @@ def add_to_shopping_list(telegram_id: int, items: list):
     ref.set({"items": firestore.ArrayUnion(new_items)}, merge=True)
 
 
+@firestore.transactional
+def _mark_bought_txn(transaction, ref, item_name):
+    doc = ref.get(transaction=transaction)
+    if not doc.exists: return
+    items = doc.to_dict().get("items", [])
+    updated = False
+    for i in items:
+        if i.get("name", "").lower() == item_name.lower():
+            i["bought"] = True
+            updated = True
+    if updated:
+        transaction.update(ref, {"items": items})
+
 def mark_as_bought(telegram_id: int, item_name: str):
+    db = get_db()
     ref = get_user_ref(telegram_id).collection("shopping_list").document("default")
-    doc = ref.get()
-    if doc.exists:
-        items = doc.to_dict().get("items", [])
-        updated = [
-            {**i, "bought": True} if i.get("name", "").lower() == item_name.lower() else i
-            for i in items
-        ]
-        ref.set({"items": updated})
+    _mark_bought_txn(db.transaction(), ref, item_name)
+
 
 
 # ── Reminders ─────────────────────────────────────────────────────────────────

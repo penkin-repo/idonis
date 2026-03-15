@@ -201,4 +201,18 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "complete_all_tasks",
+            "description": "Отметить ВСЕ задачи на определённый день как выполненные. Полезно, когда пользователь говорит 'все готово' или 'обнули задачи'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "date": {"type": "string", "description": "Дата в формате YYYY-MM-DD"},
+                },
+                "required": ["date"],
+            },
+        },
+    },
 ]

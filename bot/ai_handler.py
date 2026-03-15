@@ -107,10 +107,12 @@ def _build_system_prompt(telegram_id: int) -> str:
 - Используй эмодзи уместно.
 - При упоминании траты → add_expense.
 - При добавлении дела → add_task (если указано время → автоматически set_reminder за 15 мин).
+- Если нужно отметить ВСЕ задачи как выполненные → ОБЯЗАТЕЛЬНО вызывай complete_all_tasks.
 - При описании еды → add_meal (оцени калории сам).
 - При просьбе купить → add_to_shopping_list.
 - Ели нужна доп. информация → вызывай функции чтения.
 - Никогда не выдумывай данные, которых нет в контексте.
+- ТЫ ОБЯЗАН использовать инструменты. Никогда не говори "я не могу", если есть подходящая функция.
 
 Доступные категории трат: {CATEGORIES}"""
 
@@ -177,6 +179,10 @@ def _execute_tool(telegram_id: int, tool_name: str, args: dict) -> str:
     elif tool_name == "complete_task":
         db.complete_task(telegram_id, args.get("date", today), args["task_id"])
         return "Задача отмечена как выполненная"
+
+    elif tool_name == "complete_all_tasks":
+        db.complete_all_tasks(telegram_id, args.get("date", today))
+        return "ВСЕ задачи на день отмечены как выполненные"
 
     elif tool_name == "add_expense":
         expense = {
