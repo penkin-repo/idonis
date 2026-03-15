@@ -104,9 +104,25 @@ def telegram_webhook():
         send_message(chat_id, msg, reply_markup=MAIN_MENU)
         return jsonify({"ok": True}), 200
 
-    if text == "📊 Мой контекст":
-        # Temporary stub for context visualizer
-        send_message(chat_id, "Здесь будет отображаться информация, которую я запомнил про тебя.", reply_markup=MAIN_MENU)
+    if text == "📊 Общая сводка":
+        from bot.ai_handler import handle_message
+        threading.Thread(target=handle_message, args=(chat_id, "Дай полную сводку по моим делам, тратам и здоровью на этот момент")).start()
+        return jsonify({"ok": True}), 200
+
+    if text == "🍎 План по еде":
+        from bot.ai_handler import handle_message
+        threading.Thread(target=handle_message, args=(chat_id, "Какой у меня план питания на сегодня?")).start()
+        return jsonify({"ok": True}), 200
+
+    if text == "💪 План здоровья":
+        from bot.ai_handler import handle_message
+        threading.Thread(target=handle_message, args=(chat_id, "Какой у меня план по тренировкам и здоровью на сегодня?")).start()
+        return jsonify({"ok": True}), 200
+
+    if text == "👤 Мой профиль":
+        # AI will explain who it knows the user is
+        from bot.ai_handler import handle_message
+        threading.Thread(target=handle_message, args=(chat_id, "Расскажи вкратце, что ты знаешь обо мне (мой профиль)")).start()
         return jsonify({"ok": True}), 200
 
     # 4. Fallback to AI for everything else

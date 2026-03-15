@@ -6,12 +6,19 @@ keyboards.py — UI elements (keyboards) for Telegram bot.
 MAIN_MENU = {
     "keyboard": [
         [
+            {"text": "📊 Общая сводка"},
+        ],
+        [
             {"text": "📝 Задачи на сегодня"},
             {"text": "🛒 Список покупок"},
         ],
         [
+            {"text": "🍎 План по еде"},
+            {"text": "💪 План здоровья"},
+        ],
+        [
             {"text": "💳 Траты сегодня"},
-            {"text": "📊 Мой контекст"},
+            {"text": "👤 Мой профиль"},
         ]
     ],
     "resize_keyboard": True,
