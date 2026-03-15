@@ -7,8 +7,8 @@
 
 ## 🟡 ТЕКУЩИЙ СТАТУС: ФАЗА ПЛАНИРОВАНИЯ
 
-**Что сейчас:** Бот задеплоен на Render.com.
-**Следующий шаг:** Установить вебхук в Telegram, настроить UptimeRobot и протестировать бота.
+**Что сейчас:** Бот задеплоен на Render.com и успешно привязан к Telegram (Webhook is set).
+**Следующий шаг:** Настроить UptimeRobot и протестировать бота в Telegram.
 
 ---
 
@@ -49,7 +49,7 @@
 - [x] Интегрировать OpenRouter API
 - [x] Добавить function calling (все инструменты)
 - [x] Написать schedulers: APScheduler + reminders + morning + evening
-- [ ] Установить webhook в Telegram
+- [x] Установить webhook в Telegram
 - [ ] Настроить UptimeRobot на /health endpoint
 - [ ] Финальное тестирование по чеклисту из MASTER_PROMPT.md
 
