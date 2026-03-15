@@ -122,7 +122,7 @@ TOOLS = [
         "function": {
             "name": "get_today_tasks",
             "description": "Получить список задач на сегодня",
-            "parameters": {"type": "object", "properties": {}},
+            "parameters": {"type": "object"},
         },
     },
     {
@@ -148,7 +148,7 @@ TOOLS = [
         "function": {
             "name": "get_shopping_list",
             "description": "Получить текущий список покупок",
-            "parameters": {"type": "object", "properties": {}},
+            "parameters": {"type": "object"},
         },
     },
     {
@@ -170,7 +170,7 @@ TOOLS = [
         "function": {
             "name": "get_today_meals",
             "description": "Получить список приемов пищи за сегодня (с калориями)",
-            "parameters": {"type": "object", "properties": {}},
+            "parameters": {"type": "object"},
         },
     },
     {
