@@ -192,3 +192,17 @@ def get_pending_reminders() -> list:
 
 def mark_reminder_fired(doc_path: str):
     get_db().document(doc_path).update({"status": "fired"})
+
+
+# ── Chat History ──────────────────────────────────────────────────────────────
+def get_chat_history(telegram_id: int, limit: int = 10) -> list:
+    """Return the last messages from chat history."""
+    doc = get_user_ref(telegram_id).collection("history").document("messages").get()
+    return doc.to_dict().get("items", [])[-limit:] if doc.exists else []
+
+
+def save_chat_history(telegram_id: int, history: list, limit: int = 20):
+    """Save the chat history, keeping only the last N items."""
+    ref = get_user_ref(telegram_id).collection("history").document("messages")
+    ref.set({"items": history[-limit:]}, merge=True)
+

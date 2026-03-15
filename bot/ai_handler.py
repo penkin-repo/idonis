@@ -287,10 +287,13 @@ def handle_message(telegram_id: int, user_text: str):
 
     try:
         system_prompt = _build_system_prompt(telegram_id)
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_text},
-        ]
+        
+        # Load history
+        history = db.get_chat_history(telegram_id, limit=10)
+        
+        messages = [{"role": "system", "content": system_prompt}]
+        messages.extend(history)
+        messages.append({"role": "user", "content": user_text})
 
         # Step 1: First AI call
         response = _call_openrouter(messages)
@@ -324,6 +327,15 @@ def handle_message(telegram_id: int, user_text: str):
         if final_text:
             from bot.keyboards import MAIN_MENU
             send_message(telegram_id, final_text, reply_markup=MAIN_MENU)
+            
+            # Save history (user msg + final ai response)
+            # We don't save system/tool messages to DB to keep it lean
+            # But they are in the 'messages' list for the current request
+            new_history = history + [
+                {"role": "user", "content": user_text},
+                {"role": "assistant", "content": final_text}
+            ]
+            db.save_chat_history(telegram_id, new_history, limit=10)
         else:
             send_message(telegram_id, "🤔 Не смог сформулировать ответ")
 
