@@ -13,7 +13,7 @@ import pytz
 
 from bot import tools as tool_defs
 from bot import firestore_ops as db
-from bot.telegram_api import send_message
+from bot.telegram_api import send_message, send_chat_action
 from bot.config import OPENROUTER_API_KEY, OPENROUTER_MODEL
 from flask import Blueprint, request, jsonify
 from bot.config import WEBHOOK_SECRET
@@ -217,6 +217,9 @@ def handle_message(telegram_id: int, user_text: str):
     if not OPENROUTER_API_KEY:
         send_message(telegram_id, "❌ Ошибка: OPENROUTER_API_KEY не настроен")
         return
+
+    # Отправляем статус "печатает..."
+    send_chat_action(telegram_id, "typing")
 
     try:
         system_prompt = _build_system_prompt(telegram_id)
