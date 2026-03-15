@@ -61,6 +61,12 @@ def _build_system_prompt(telegram_id: int) -> str:
     if os.path.exists(context_path):
         with open(context_path, "r", encoding="utf-8") as f:
             static_context = f.read()
+            
+    # Чтение файла питания
+    food_path = os.path.join(os.path.dirname(__file__), "food.md")
+    if os.path.exists(food_path):
+        with open(food_path, "r", encoding="utf-8") as f:
+            static_context += "\n\nПЛАН ПИТАНИЯ (food.md):\n" + f.read()
 
     # Чтение выученных фактов из БД
     learned_facts = db.get_learned_context(telegram_id)
