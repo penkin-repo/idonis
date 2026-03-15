@@ -88,9 +88,15 @@ def _call_openrouter(messages: list) -> dict:
     payload = {
         "model": OPENROUTER_MODEL,
         "messages": messages,
-        "tools": tool_defs.TOOLS,
-        "tool_choice": "auto",
     }
+    
+    # OpenRouter and OpenAI require tools to be passed directly if they exist
+    if getattr(tool_defs, "TOOLS", None):
+        payload["tools"] = tool_defs.TOOLS
+        # If we pass tools, we shouldn't pass tool_choice="auto" blindly for all models,
+        # but for OpenRouter it's usually fine or we omit it to let the model decide naturally
+        # payload["tool_choice"] = "auto"
+
     resp = requests.post(OPENROUTER_URL, json=payload, headers=headers, timeout=30)
     resp.raise_for_status()
     return resp.json()
