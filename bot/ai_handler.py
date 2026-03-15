@@ -75,8 +75,11 @@ def _build_system_prompt(telegram_id: int) -> str:
     learned_facts = db.get_learned_context(telegram_id)
     learned_text = "\n".join([f"- {f}" for f in learned_facts]) if learned_facts else "Нет выученных фактов"
 
+    weekdays = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
+    weekday_str = weekdays[now.weekday()]
+
     return f"""Ты — личный ассистент {name}. Твоё имя — Idonis.
-Сейчас: {now.strftime('%d.%m.%Y %H:%M')} (Москва).
+Сейчас: {now.strftime('%d.%m.%Y %H:%M')} ({weekday_str}, Москва).
 
 СТАТИЧНЫЙ КОНТЕКСТ ПОЛЬЗОВАТЕЛЯ:
 {static_context}

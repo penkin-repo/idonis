@@ -31,6 +31,7 @@ def _start_scheduler():
     from bot.schedulers.reminders import check_reminders
     from bot.schedulers.morning import morning_report
     from bot.schedulers.evening import evening_report
+    from bot.schedulers.midday import midday_report
 
     scheduler = BackgroundScheduler(timezone="Europe/Moscow")
 
@@ -40,11 +41,14 @@ def _start_scheduler():
     # Morning briefing at 07:00 MSK
     scheduler.add_job(morning_report, "cron", hour=7, minute=0, id="morning")
 
+    # Midday summary at 14:00 MSK
+    scheduler.add_job(midday_report, "cron", hour=14, minute=0, id="midday")
+
     # Evening summary at 21:00 MSK
     scheduler.add_job(evening_report, "cron", hour=21, minute=0, id="evening")
 
     scheduler.start()
-    logger.info("✅ APScheduler started (reminders, morning, evening)")
+    logger.info("✅ APScheduler started (reminders, morning, midday, evening)")
 
 
 # Start scheduler when module loads (compatible with gunicorn --workers 1)
