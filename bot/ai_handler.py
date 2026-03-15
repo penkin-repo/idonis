@@ -254,7 +254,8 @@ def handle_message(telegram_id: int, user_text: str):
             final_text = ai_message.get("content", "")
 
         if final_text:
-            send_message(telegram_id, final_text)
+            from bot.keyboards import MAIN_MENU
+            send_message(telegram_id, final_text, reply_markup=MAIN_MENU)
         else:
             send_message(telegram_id, "🤔 Не смог сформулировать ответ")
 

@@ -49,3 +49,28 @@ def send_chat_action(chat_id: int, action: str = "typing"):
         requests.post(f"{TELEGRAM_API_BASE}/sendChatAction", json=payload, timeout=5)
     except Exception:
         logger.warning(f"Failed to send chat action '{action}'")
+
+
+def edit_message_reply_markup(chat_id: int, message_id: int, reply_markup: dict):
+    payload = {
+        "chat_id": chat_id,
+        "message_id": message_id,
+        "reply_markup": json.dumps(reply_markup)
+    }
+    try:
+        requests.post(f"{TELEGRAM_API_BASE}/editMessageReplyMarkup", json=payload, timeout=10)
+    except Exception:
+        logger.error("Failed to edit reply markup", exc_info=True)
+
+
+def answer_callback_query(callback_query_id: str, text: str = None):
+    payload = {
+        "callback_query_id": callback_query_id
+    }
+    if text:
+        payload["text"] = text
+    try:
+        requests.post(f"{TELEGRAM_API_BASE}/answerCallbackQuery", json=payload, timeout=5)
+    except Exception:
+        logger.error("Failed to answer callback query", exc_info=True)
+

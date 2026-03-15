@@ -18,7 +18,7 @@ load_dotenv()
 #   - anthropic/claude-3.5-sonnet
 #   - google/gemini-2.5-flash
 #   - meta-llama/llama-3-70b-instruct
-OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openai/gpt-4o-mini")
+OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "minimax/minimax-m2.5:free")
 
 # ==========================================
 # СЕКРЕТЫ (БЕРУТСЯ ИЗ .env ИЛИ RENDER ENV)

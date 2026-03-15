@@ -81,6 +81,19 @@ def complete_task(telegram_id: int, date: str, task_id: str):
         ref.set({"items": updated}, merge=True)
 
 
+def toggle_task(telegram_id: int, date: str, task_id: str):
+    ref = get_user_ref(telegram_id).collection("tasks").document(date)
+    doc = ref.get()
+    if doc.exists:
+        items = doc.to_dict().get("items", [])
+        updated = [
+            {**t, "done": not t.get("done", False)} if t.get("id") == task_id else t
+            for t in items
+        ]
+        ref.set({"items": updated}, merge=True)
+
+
+
 # ── Expenses ───────────────────────────────────────────────────────────────────
 def add_expense(telegram_id: int, date: str, expense: dict):
     ref = get_user_ref(telegram_id).collection("expenses").document(date)
