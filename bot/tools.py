@@ -215,4 +215,23 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "track_health_stat",
+            "description": "Записать прогресс по здоровью (отжимания, вода, растяжка и др.)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "stat_key": {
+                        "type": "string", 
+                        "enum": ["pushups_done", "water_liters", "stretching_done"],
+                        "description": "Ключ прогресса"
+                    },
+                    "value": {"type": "string", "description": "Значение (например 'true' или '1.5')"},
+                },
+                "required": ["stat_key", "value"],
+            },
+        },
+    },
 ]

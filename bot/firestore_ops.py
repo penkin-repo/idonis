@@ -163,6 +163,19 @@ def get_meals(telegram_id: int, date: str) -> list:
     return doc.to_dict().get("items", []) if doc.exists else []
 
 
+# ── Health Tracking ────────────────────────────────────────────────────────────
+def get_health_stats(telegram_id: int, date: str) -> dict:
+    """Return health stats for a date (workouts, water, etc.)."""
+    doc = get_user_ref(telegram_id).collection("health").document(date).get()
+    return doc.to_dict() if doc.exists else {}
+
+
+def update_health_stat(telegram_id: int, date: str, key: str, value: any):
+    """Update a specific health stat (e.g., 'pushups_done': True)."""
+    ref = get_user_ref(telegram_id).collection("health").document(date)
+    ref.set({key: value, "updated_at": datetime.utcnow()}, merge=True)
+
+
 # ── Shopping list ──────────────────────────────────────────────────────────────
 def get_shopping_list(telegram_id: int) -> list:
     doc = get_user_ref(telegram_id).collection("shopping_list").document("default").get()

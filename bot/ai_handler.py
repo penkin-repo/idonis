@@ -58,7 +58,9 @@ def _build_system_prompt(telegram_id: int) -> str:
         [i["name"] for i in shopping if not i.get("bought")]
     ) or "список пуст"
 
-    # Чтение статичного контекста (База данных имеет приоритет над локальными файлами)
+    health = db.get_health_stats(telegram_id, _today_str())
+    health_text = "\n".join([f"- {k}: {v}" for k, v in health.items()]) or "Прогресса по здоровью пока нет"
+ # Чтение статичного контекста (База данных имеет приоритет над локальными файлами)
     user_context = db.get_context_document(telegram_id, "user_context")
     if not user_context:
         context_path = os.path.join(os.path.dirname(__file__), "user_context.md")
@@ -99,6 +101,9 @@ def _build_system_prompt(telegram_id: int) -> str:
 Употреблено калорий сегодня: {calories_sum} ккал
 Список покупок: {shopping_text}
 
+ПРОГРЕСС ПО ЗДОРОВЬЮ СЕГОДНЯ:
+{health_text}
+
 ПРАВИЛА:
 - **Твой текстовый ответ НИКОГДА не должен быть пустым.**
 - **Отвечай четко по делу (в 2-3 словах, если возможно). Для планов — используй только СПИСКИ с временем.**
@@ -110,6 +115,7 @@ def _build_system_prompt(telegram_id: int) -> str:
 - При упоминании траты → add_expense.
 - При добавлении дела → add_task (если указано время → автоматически set_reminder за 15 мин).
 - Если нужно отметить ВСЕ задачи как выполненные → ОБЯЗАТЕЛЬНО вызывай complete_all_tasks.
+- **Если пользователь сообщил о тренировке, воде или растяжке → ОБЯЗАТЕЛЬНО вызывай track_health_stat.**
 - При описании еды → add_meal (оцени калории сам).
 - При просьбе купить → add_to_shopping_list.
 - Ели нужна доп. информация → вызывай функции чтения.
@@ -224,6 +230,10 @@ def _execute_tool(telegram_id: int, tool_name: str, args: dict) -> str:
     elif tool_name == "update_user_context":
         db.set_context_document(telegram_id, "user_context", args["new_content"])
         return "Личный контекст обновлен"
+
+    elif tool_name == "track_health_stat":
+        db.update_health_stat(telegram_id, today, args["stat_key"], args["value"])
+        return f"Статистика {args['stat_key']} обновлена: {args['value']}"
 
     elif tool_name == "set_reminder":
         try:
