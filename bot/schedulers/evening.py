@@ -6,7 +6,7 @@ import requests
 import os
 import pytz
 from datetime import datetime
-from bot.firestore_ops import get_db, get_tasks, get_expenses
+from bot.firestore_ops import get_db, get_tasks, get_expenses, get_meals
 from bot.telegram_api import send_message
 from bot.config import OPENROUTER_API_KEY, OPENROUTER_MODEL
 
@@ -29,18 +29,23 @@ def evening_report():
             
             tasks = get_tasks(telegram_id, today)
             expenses = get_expenses(telegram_id, today)
+            meals = get_meals(telegram_id, today)
+            
             total_spent = sum(e.get("amount", 0) for e in expenses)
+            total_calories = sum(m.get("calories", 0) for m in meals)
             
             # AI formatting
             prompt = f"""Подведи итоги дня для {name}.
 Сегодня: {today}.
 Выполнено задач: {len([t for t in tasks if t.get('done')])} из {len(tasks)}
 Потрачено за день: {total_spent} руб.
+Употреблено килокалорий (Ккал): {total_calories}
 
 ПРАВИЛА:
 - Будь поддерживающим.
 - Если день был продуктивным (много задач выполнено) — похвали.
 - Если много потрачено — мягко напомни о бюджете.
+- Если съедено много/мало калорий — дай короткий фидбек по питанию (для мужчины 84 кг норма ~2200).
 - Пожелай хорошего отдыха."""
 
             headers = {"Authorization": f"Bearer {OPENROUTER_API_KEY}"}

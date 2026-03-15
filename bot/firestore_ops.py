@@ -120,6 +120,10 @@ def add_meal(telegram_id: int, date: str, meal: dict):
     ref = get_user_ref(telegram_id).collection("meals").document(date)
     ref.set({"items": firestore.ArrayUnion([meal])}, merge=True)
 
+def get_meals(telegram_id: int, date: str) -> list:
+    doc = get_user_ref(telegram_id).collection("meals").document(date).get()
+    return doc.to_dict().get("items", []) if doc.exists else []
+
 
 # ── Shopping list ──────────────────────────────────────────────────────────────
 def get_shopping_list(telegram_id: int) -> list:

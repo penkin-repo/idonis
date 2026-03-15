@@ -50,6 +50,9 @@ def _build_system_prompt(telegram_id: int) -> str:
     expenses_today = db.get_expenses(telegram_id, _today_str())
     expenses_sum = sum(e.get("amount", 0) for e in expenses_today)
 
+    meals_today = db.get_meals(telegram_id, _today_str())
+    calories_sum = sum(m.get("calories", 0) for m in meals_today)
+
     shopping = db.get_shopping_list(telegram_id)
     shopping_text = ", ".join(
         [i["name"] for i in shopping if not i.get("bought")]
@@ -86,6 +89,7 @@ def _build_system_prompt(telegram_id: int) -> str:
 {tasks_text}
 
 Траты сегодня: {expenses_sum}₽
+Употреблено калорий сегодня: {calories_sum} ккал
 Список покупок: {shopping_text}
 
 ПРАВИЛА:
@@ -213,6 +217,15 @@ def _execute_tool(telegram_id: int, tool_name: str, args: dict) -> str:
         return "\n".join(
             [f"{'✅' if t.get('done') else '⬜'} {t.get('time', '')} {t['title']}" for t in tasks]
         )
+
+    elif tool_name == "get_today_meals":
+        meals = db.get_meals(telegram_id, today)
+        if not meals:
+            return "Приемов пищи за сегодня нет"
+        lines = [f"{m.get('time', '')} - {m['description']} (~{m['calories']} ккал)" for m in meals]
+        total = sum(m.get('calories', 0) for m in meals)
+        lines.append(f"Итого за день: {total} ккал")
+        return "\n".join(lines)
 
     elif tool_name == "get_expenses_summary":
         dates = [today]

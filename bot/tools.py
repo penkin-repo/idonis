@@ -165,4 +165,12 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_today_meals",
+            "description": "Получить список приемов пищи за сегодня (с калориями)",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
 ]
