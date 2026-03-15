@@ -100,18 +100,18 @@ def add_meal(telegram_id: int, date: str, meal: dict):
 
 # ── Shopping list ──────────────────────────────────────────────────────────────
 def get_shopping_list(telegram_id: int) -> list:
-    doc = get_user_ref(telegram_id).document("shopping_list").get()
+    doc = get_user_ref(telegram_id).collection("shopping_list").document("default").get()
     return doc.to_dict().get("items", []) if doc.exists else []
 
 
 def add_to_shopping_list(telegram_id: int, items: list):
-    ref = get_user_ref(telegram_id).document("shopping_list")
+    ref = get_user_ref(telegram_id).collection("shopping_list").document("default")
     new_items = [{"name": i, "bought": False} for i in items]
     ref.set({"items": firestore.ArrayUnion(new_items)}, merge=True)
 
 
 def mark_as_bought(telegram_id: int, item_name: str):
-    ref = get_user_ref(telegram_id).document("shopping_list")
+    ref = get_user_ref(telegram_id).collection("shopping_list").document("default")
     doc = ref.get()
     if doc.exists:
         items = doc.to_dict().get("items", [])
