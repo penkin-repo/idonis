@@ -176,6 +176,27 @@ def update_health_stat(telegram_id: int, date: str, key: str, value: any):
     ref.set({key: value, "updated_at": datetime.utcnow()}, merge=True)
 
 
+def get_health_summary(telegram_id: int, dates: list) -> dict:
+    """Return health stats for multiple dates."""
+    results = {}
+    for d in dates:
+        doc = get_user_ref(telegram_id).collection("health").document(d).get()
+        if doc.exists:
+            results[d] = doc.to_dict()
+    return results
+
+
+def get_meals_summary(telegram_id: int, dates: list) -> dict:
+    """Return meals for multiple dates."""
+    results = {}
+    for d in dates:
+        doc = get_user_ref(telegram_id).collection("meals").document(d).get()
+        if doc.exists:
+            results[d] = doc.to_dict().get("items", [])
+    return results
+
+
+
 # ── Shopping list ──────────────────────────────────────────────────────────────
 def get_shopping_list(telegram_id: int) -> list:
     doc = get_user_ref(telegram_id).collection("shopping_list").document("default").get()

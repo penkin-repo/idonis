@@ -75,7 +75,7 @@ def _build_system_prompt(telegram_id: int) -> str:
             with open(food_path, "r", encoding="utf-8") as f:
                 food_context = f.read()
 
-    static_context = user_context + "\n\nПЛАН ПИТАНИЯ (food.md):\n" + food_context
+    static_context = user_context + "\n\nДЛЯ СПРАВКИ: РЕКОМЕНДУЕМЫЙ ПЛАН ПИТАНИЯ И ТРЕНИРОВОК (НЕ ЯВЛЯЕТСЯ ФАКТОМ):\n" + food_context
 
     # Чтение выученных фактов из БД
     learned_facts = db.get_learned_context(telegram_id)
@@ -101,7 +101,7 @@ def _build_system_prompt(telegram_id: int) -> str:
 Употреблено калорий сегодня: {calories_sum} ккал
 Список покупок: {shopping_text}
 
-ПРОГРЕСС ПО ЗДОРОВЬЮ СЕГОДНЯ:
+ПРОГРЕСС ПО ЗДОРОВЬЮ СЕГОДНЯ (РЕАЛЬНЫЕ ДАННЫЕ ИЗ БАЗЫ):
 {health_text}
 
 ПРАВИЛА:
@@ -118,9 +118,11 @@ def _build_system_prompt(telegram_id: int) -> str:
 - **Если пользователь сообщил о тренировке, воде или растяжке → ОБЯЗАТЕЛЬНО вызывай track_health_stat.**
 - При описании еды → add_meal (оцени калории сам).
 - При просьбе купить → add_to_shopping_list.
-- Ели нужна доп. информация → вызывай функции чтения.
-- Никогда не выдумывай данные, которых нет в контексте.
-- ТЫ ОБЯЗАН использовать инструменты. Никогда не говори "я не могу", если есть подходящая функция.
+- **СТРОГОЕ ПРАВИЛО: Никогда не путай ПЛАН с ФАКТОМ.** 
+- Если еды нет в списке 'Употреблено калорий сегодня', значит пользователь её НЕ ЕЛ. 
+- Если тренировки/воды нет в 'ПРОГРЕСС ПО ЗДОРОВЬЮ', значит этого НЕ БЫЛО. 
+- Никогда не выдумывай данные. Если данных нет — так и говори: "Информации о приеме пищи нет".
+- ТЫ ОБЯЗАН использовать инструменты. Никогда не говори "я не могу", если есть функция.
 
 Доступные категории трат: {CATEGORIES}"""
 
@@ -262,6 +264,20 @@ def _execute_tool(telegram_id: int, tool_name: str, args: dict) -> str:
         total = sum(m.get('calories', 0) for m in meals)
         lines.append(f"Итого за день: {total} ккал")
         return "\n".join(lines)
+
+    elif tool_name == "get_health_stats_summary":
+        days = 7 if args.get("date_range") == "week" else 30
+        dates = [(now - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days)]
+        summary = db.get_health_summary(telegram_id, dates)
+        if not summary: return "Данных по здоровью за период нет"
+        return json.dumps(summary, indent=2, ensure_ascii=False)
+
+    elif tool_name == "get_meals_summary":
+        days = 7 if args.get("date_range") == "week" else 30
+        dates = [(now - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days)]
+        summary = db.get_meals_summary(telegram_id, dates)
+        if not summary: return "Данных по питанию за период нет"
+        return json.dumps(summary, indent=2, ensure_ascii=False)
 
     elif tool_name == "get_expenses_summary":
         dates = [today]

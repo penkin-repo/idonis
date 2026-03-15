@@ -234,4 +234,33 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_health_stats_summary",
+            "description": "Получить сводку по здоровью за период (неделя/месяц).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "date_range": {"type": "string", "enum": ["week", "month"], "description": "Период"}
+                },
+                "required": ["date_range"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_meals_summary",
+            "description": "Получить сводку по питанию за период (неделя/месяц).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "date_range": {"type": "string", "enum": ["week", "month"], "description": "Период"}
+                },
+                "required": ["date_range"],
+            },
+        },
+    },
 ]
+
