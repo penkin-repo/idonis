@@ -96,6 +96,7 @@ def _build_system_prompt(telegram_id: int) -> str:
 Список покупок: {shopping_text}
 
 ПРАВИЛА:
+- **Твой текстовый ответ НИКОГДА не должен быть пустым.**
 - Отвечай конкретно, в двух словах. (Максимально коротко!).
 - Если речь о еде — называй конкретные виды (не "суп", а "куриный суп").
 - Если речь о покупках — пиши конкретные граммы, килограммы, пакеты или штуки, как в твоем плане.
@@ -303,6 +304,10 @@ def handle_message(telegram_id: int, user_text: str):
             final_text = final_response["choices"][0]["message"]["content"]
         else:
             final_text = ai_message.get("content", "")
+
+        # Fallback if AI returned empty string after executing tools
+        if not final_text and tool_calls:
+            final_text = "✅ Готово"
 
         if final_text:
             from bot.keyboards import MAIN_MENU
