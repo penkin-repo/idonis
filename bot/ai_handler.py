@@ -127,8 +127,8 @@ def _call_openrouter(messages: list) -> dict:
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
-        "X-Title": "Idonis Bot",
-        "HTTP-Referer": "https://idonis-bot.onrender.com",  # Required for some models
+        "X-OpenRouter-Title": "Idonis Bot",
+        "Referer": "https://idonis-bot.onrender.com",  # Standard HTTP Referer header
     }
     payload = {
         "model": OPENROUTER_MODEL,
