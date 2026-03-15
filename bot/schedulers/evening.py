@@ -8,11 +8,10 @@ import pytz
 from datetime import datetime
 from bot.firestore_ops import get_db, get_tasks, get_expenses
 from bot.telegram_api import send_message
+from bot.config import OPENROUTER_API_KEY, OPENROUTER_MODEL
 
 logger = logging.getLogger(__name__)
 
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
-OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openai/gpt-4o-mini")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 def evening_report():

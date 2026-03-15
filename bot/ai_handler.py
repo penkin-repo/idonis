@@ -14,11 +14,14 @@ import pytz
 from bot import tools as tool_defs
 from bot import firestore_ops as db
 from bot.telegram_api import send_message
+from bot.config import OPENROUTER_API_KEY, OPENROUTER_MODEL
+from flask import Blueprint, request, jsonify
+from bot.config import WEBHOOK_SECRET
 
 logger = logging.getLogger(__name__)
 
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
-OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openai/gpt-4o-mini")
+webhook_bp = Blueprint("webhook", __name__)
+
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 CATEGORIES = "продукты, кружки, транспорт, кафе, здоровье, одежда, дом, развлечения, прочее"
