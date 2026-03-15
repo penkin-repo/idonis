@@ -34,8 +34,8 @@ def _start_scheduler():
 
     scheduler = BackgroundScheduler(timezone="Europe/Moscow")
 
-    # Check reminders every minute
-    scheduler.add_job(check_reminders, "interval", minutes=1, id="reminders")
+    # Check reminders every 30 minutes
+    scheduler.add_job(check_reminders, "interval", minutes=30, id="reminders")
 
     # Morning briefing at 07:00 MSK
     scheduler.add_job(morning_report, "cron", hour=7, minute=0, id="morning")

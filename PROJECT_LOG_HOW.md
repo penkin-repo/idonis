@@ -73,9 +73,9 @@ Idonis/
     ├── firestore_ops.py      # CRUD операции с Firestore
     ├── telegram_api.py       # Отправка сообщений в Telegram
     ├── tools.py              # Определения инструментов AI (JSON schema)
-    └── schedulers/
+    ├── schedulers/
         ├── __init__.py
-        ├── reminders.py      # check_reminders (каждую минуту)
+        ├── reminders.py      # check_reminders (каждые 30 минут)
         ├── morning.py        # morning_report (07:00 MSK)
         └── evening.py        # evening_report (21:00 MSK)
 ```
@@ -137,7 +137,7 @@ users/{telegram_id}/
 |-------------------------|--------------------|-------------------------|-------------------------------------|
 | `POST /webhook`         | Flask route        | —                       | Основной обработчик Telegram updates|
 | `GET /health`           | Flask route        | —                       | Health check для UptimeRobot        |
-| `check_reminders()`     | APScheduler cron   | каждую 1 мин            | Триггер напоминалок                 |
+| `check_reminders()`     | APScheduler cron   | каждые 30 мин            | Триггер напоминалок                 |
 | `morning_report()`      | APScheduler cron   | `0 4 * * *` (UTC)       | Утренний отчёт (07:00 MSK)          |
 | `evening_report()`      | APScheduler cron   | `0 18 * * *` (UTC)      | Вечерний итог (21:00 MSK)           |
 
