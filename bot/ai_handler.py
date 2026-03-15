@@ -58,18 +58,22 @@ def _build_system_prompt(telegram_id: int) -> str:
         [i["name"] for i in shopping if not i.get("bought")]
     ) or "список пуст"
 
-    # Чтение статичного локального контекста
-    static_context = ""
-    context_path = os.path.join(os.path.dirname(__file__), "user_context.md")
-    if os.path.exists(context_path):
-        with open(context_path, "r", encoding="utf-8") as f:
-            static_context = f.read()
-            
-    # Чтение файла питания
-    food_path = os.path.join(os.path.dirname(__file__), "food.md")
-    if os.path.exists(food_path):
-        with open(food_path, "r", encoding="utf-8") as f:
-            static_context += "\n\nПЛАН ПИТАНИЯ (food.md):\n" + f.read()
+    # Чтение статичного контекста (База данных имеет приоритет над локальными файлами)
+    user_context = db.get_context_document(telegram_id, "user_context")
+    if not user_context:
+        context_path = os.path.join(os.path.dirname(__file__), "user_context.md")
+        if os.path.exists(context_path):
+            with open(context_path, "r", encoding="utf-8") as f:
+                user_context = f.read()
+
+    food_context = db.get_context_document(telegram_id, "food")
+    if not food_context:
+        food_path = os.path.join(os.path.dirname(__file__), "food.md")
+        if os.path.exists(food_path):
+            with open(food_path, "r", encoding="utf-8") as f:
+                food_context = f.read()
+
+    static_context = user_context + "\n\nПЛАН ПИТАНИЯ (food.md):\n" + food_context
 
     # Чтение выученных фактов из БД
     learned_facts = db.get_learned_context(telegram_id)
@@ -204,6 +208,14 @@ def _execute_tool(telegram_id: int, tool_name: str, args: dict) -> str:
     elif tool_name == "save_learned_context":
         db.add_learned_context(telegram_id, args["fact"])
         return f"Факт '{args['fact']}' сохранен в памяти"
+
+    elif tool_name == "update_food_plan":
+        db.set_context_document(telegram_id, "food", args["new_content"])
+        return "План питания обновлен"
+
+    elif tool_name == "update_user_context":
+        db.set_context_document(telegram_id, "user_context", args["new_content"])
+        return "Личный контекст обновлен"
 
     elif tool_name == "set_reminder":
         try:

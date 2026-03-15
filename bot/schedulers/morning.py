@@ -30,16 +30,29 @@ def morning_report():
             tasks = get_tasks(telegram_id, today)
             shopping = get_shopping_list(telegram_id)
             
+            # Read context from DB
+            context = get_context_document(telegram_id, "user_context")
+            if not context:
+                # Fallback to file if DB empty
+                context_path = os.path.join(os.path.dirname(__file__), "..", "user_context.md")
+                if os.path.exists(context_path):
+                    with open(context_path, "r", encoding="utf-8") as f:
+                        context = f.read()
+            
             # AI formatting
             prompt = f"""Сгенерируй доброе утреннее сообщение для {name}.
 Сегодня: {today}.
 Задачи на сегодня: {tasks}
 Список покупок: {[i['name'] for i in shopping if not i.get('bought')]}
 
+ПЕРСОНАЛЬНЫЙ КОНТЕКСТ:
+{context}
+
 ПРАВИЛА:
 - Будь бодрым и позитивным.
 - Используй эмодзи.
 - Кратко перечисли основные дела.
+- Если в контексте есть важные события (ДР, кружки), упомяни их.
 - Пожелай удачного дня."""
 
             headers = {"Authorization": f"Bearer {OPENROUTER_API_KEY}"}

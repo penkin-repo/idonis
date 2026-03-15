@@ -67,6 +67,18 @@ def add_learned_context(telegram_id: int, fact: str):
     ref.set({"facts": firestore.ArrayUnion([fact])}, merge=True)
 
 
+def get_context_document(telegram_id: int, doc_id: str) -> str:
+    """Retrieve Markdown context from Firestore (e.g. 'food', 'user_context')."""
+    doc = get_user_ref(telegram_id).collection("context").document(doc_id).get()
+    return doc.to_dict().get("content", "") if doc.exists else ""
+
+
+def set_context_document(telegram_id: int, doc_id: str, content: str):
+    """Save Markdown context to Firestore."""
+    ref = get_user_ref(telegram_id).collection("context").document(doc_id)
+    ref.set({"content": content, "updated_at": datetime.utcnow()}, merge=True)
+
+
 # ── Tasks ──────────────────────────────────────────────────────────────────────
 def get_tasks(telegram_id: int, date: str) -> list:
     """date format: YYYY-MM-DD"""

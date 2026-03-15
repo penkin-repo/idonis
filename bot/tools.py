@@ -173,4 +173,32 @@ TOOLS = [
             "parameters": {"type": "object", "properties": {}},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "update_food_plan",
+            "description": "Обновить или дополнить план питания (food.md). Используй для изменения меню, граммовок или списка покупок в плане.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "new_content": {"type": "string", "description": "Полный новый текст плана питания в формате Markdown"}
+                },
+                "required": ["new_content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "update_user_context",
+            "description": "Обновить личную информацию о пользователе (user_context.md). Используй для изменения данных о семье, целях или расписании.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "new_content": {"type": "string", "description": "Полный новый текст контекста в формате Markdown"}
+                },
+                "required": ["new_content"],
+            },
+        },
+    },
 ]
