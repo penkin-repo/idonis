@@ -7,8 +7,8 @@
 
 ## 🟡 ТЕКУЩИЙ СТАТУС: ФАЗА ПЛАНИРОВАНИЯ
 
-**Что сейчас:** Полная кодовая база создана. AI интеграция готова. Все планировщики реализованы.
-**Следующий шаг:** Пуш в GitHub → Настройка Render.com → Настройка переменных окружения.
+**Что сейчас:** Бот задеплоен на Render.com.
+**Следующий шаг:** Установить вебхук в Telegram, настроить UptimeRobot и протестировать бота.
 
 ---
 
@@ -40,15 +40,16 @@
 ### 🔴 MVP — Обязательно
 - [x] Создать Telegram бота (@Idonis_bot)
 - [x] Написать кодовую базу (Flask + AI + Firestore)
-- [ ] Создать Firebase проект для Firestore (Spark план, бесплатно)
+- [x] Создать Firebase проект для Firestore (Spark план, бесплатно), получить ключи
 - [x] Создать GitHub репозиторий Idonis
-- [ ] Подключить GitHub к Render.com (New → Web Service)
-- [ ] Настроить env vars в Render Dashboard
-- [ ] Деплой + установить webhook в Telegram
-- [ ] Интегрировать Firestore (чтение/запись)
-- [ ] Интегрировать OpenRouter API (без function calling)
-- [ ] Добавить function calling (все инструменты)
-- [ ] Написать schedulers: APScheduler + reminders + morning + evening
+- [x] Подключить GitHub к Render.com (New → Web Service)
+- [x] Настроить env vars в Render Dashboard
+- [x] Деплой
+- [x] Интегрировать Firestore (чтение/запись)
+- [x] Интегрировать OpenRouter API
+- [x] Добавить function calling (все инструменты)
+- [x] Написать schedulers: APScheduler + reminders + morning + evening
+- [ ] Установить webhook в Telegram
 - [ ] Настроить UptimeRobot на /health endpoint
 - [ ] Финальное тестирование по чеклисту из MASTER_PROMPT.md
 
@@ -99,10 +100,10 @@
 
 ## 🔑 Данные проекта (сервисные)
 
-| Параметр | Значение |
+| Parameter | Value |
 |----------|----------|
 | Telegram Bot | @Idonis_bot |
 | Bot URL | t.me/Idonis_bot |
-| Token | В Firebase Secret Manager как `TELEGRAM_BOT_TOKEN` |
+| Token | В Render Dashboard как `TELEGRAM_BOT_TOKEN` |
 | Firebase Region | europe-west1 |
 | Python Version | 3.11 |

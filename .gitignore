@@ -23,6 +23,9 @@ service-account*.json
 .env.local
 .env.*
 
+# Firebase
+private_key.json
+
 # IDE
 .vscode/
 .idea/
