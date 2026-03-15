@@ -203,7 +203,7 @@ curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://idonis.onrender
 1. Правки → тест локально с Firebase Emulator Suite
 2. Деплой -> `firebase deploy --only functions`
 3. Проверка в Telegram
-4. Обновить `PROJECT_LOG.md`
+4. Обновить `PROJECT_LOG.md` (ОБЯЗАТЕЛЬНО после каждых правок)
 
 ---
 
