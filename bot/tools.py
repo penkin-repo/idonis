@@ -151,4 +151,18 @@ TOOLS = [
             "parameters": {"type": "object", "properties": {}},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "save_learned_context",
+            "description": "Запомнить важный факт о пользователе (например: как зовут ребенка, любимая еда, расписание)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "fact": {"type": "string", "description": "Факт для запоминания"}
+                },
+                "required": ["fact"],
+            },
+        },
+    },
 ]

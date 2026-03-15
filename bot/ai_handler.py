@@ -55,10 +55,27 @@ def _build_system_prompt(telegram_id: int) -> str:
         [i["name"] for i in shopping if not i.get("bought")]
     ) or "список пуст"
 
+    # Чтение статичного локального контекста
+    static_context = ""
+    context_path = os.path.join(os.path.dirname(__file__), "user_context.md")
+    if os.path.exists(context_path):
+        with open(context_path, "r", encoding="utf-8") as f:
+            static_context = f.read()
+
+    # Чтение выученных фактов из БД
+    learned_facts = db.get_learned_context(telegram_id)
+    learned_text = "\n".join([f"- {f}" for f in learned_facts]) if learned_facts else "Нет выученных фактов"
+
     return f"""Ты — личный ассистент {name}. Твоё имя — Idonis.
 Сейчас: {now.strftime('%d.%m.%Y %H:%M')} (Москва).
 
-КОНТЕКСТ:
+СТАТИЧНЫЙ КОНТЕКСТ ПОЛЬЗОВАТЕЛЯ:
+{static_context}
+
+ВЫУЧЕННЫЕ ФАКТЫ О ПОЛЬЗОВАТЕЛЕ:
+{learned_text}
+
+ТЕКУЩАЯ СВОДКА ПРЯМО СЕЙЧАС:
 Задачи на сегодня:
 {tasks_text}
 
@@ -167,6 +184,10 @@ def _execute_tool(telegram_id: int, tool_name: str, args: dict) -> str:
     elif tool_name == "mark_as_bought":
         db.mark_as_bought(telegram_id, args["item_name"])
         return f"'{args['item_name']}' отмечен как куплен"
+
+    elif tool_name == "save_learned_context":
+        db.add_learned_context(telegram_id, args["fact"])
+        return f"Факт '{args['fact']}' сохранен в памяти"
 
     elif tool_name == "set_reminder":
         try:

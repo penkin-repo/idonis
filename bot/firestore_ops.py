@@ -57,6 +57,16 @@ def set_user_profile(telegram_id: int, data: dict):
     get_user_ref(telegram_id).set(data, merge=True)
 
 
+def get_learned_context(telegram_id: int) -> list:
+    doc = get_user_ref(telegram_id).collection("context").document("learned").get()
+    return doc.to_dict().get("facts", []) if doc.exists else []
+
+
+def add_learned_context(telegram_id: int, fact: str):
+    ref = get_user_ref(telegram_id).collection("context").document("learned")
+    ref.set({"facts": firestore.ArrayUnion([fact])}, merge=True)
+
+
 # ── Tasks ──────────────────────────────────────────────────────────────────────
 def get_tasks(telegram_id: int, date: str) -> list:
     """date format: YYYY-MM-DD"""
