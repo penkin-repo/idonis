@@ -217,21 +217,6 @@ export async function answerQuestion(user: User, question: string): Promise<stri
     console.error('Failed to save chat history:', err);
   }
 
-  // Сохраняем подмеченные факты.
-  if (result.spotted_facts.length > 0) {
-    try {
-      await db.insert(facts).values(
-        result.spotted_facts.map((fact) => ({
-          userId: user.id,
-          fact,
-          createdAt: now,
-        })),
-      );
-    } catch (err) {
-      console.error('Failed to save spotted facts:', err);
-    }
-  }
-
   return result.reply;
 }
 

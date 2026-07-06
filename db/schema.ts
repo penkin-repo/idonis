@@ -118,7 +118,7 @@ export const chatMessages = sqliteTable(
   }),
 );
 
-/** Факты, которые аналитик подметил в диалоге. */
+/** Факты, которые логер подметил в сообщениях пользователя. */
 export const facts = sqliteTable(
   'facts',
   {

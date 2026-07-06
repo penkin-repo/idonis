@@ -51,56 +51,20 @@ export const profileSchema = z.object({
 });
 export type ProfileParsed = z.infer<typeof profileSchema>;
 
-// ---------- 2) Логер ----------
+// ---------- 2) Логер (дневник) ----------
+const factActionSchema = z.object({
+  fact: z.string(),
+  action: z.enum(['add', 'remove']).default('add'),
+});
+
 export const logSchema = z.object({
   is_question: z.any().transform((v): boolean => v === true).default(false),
-  type: z.any().transform((v): string => {
-    const allowed = ['food', 'sleep', 'mood', 'activity', 'weight', 'other'];
-    return typeof v === 'string' && allowed.includes(v) ? v : 'other';
-  }),
+  is_duplicate: z.any().transform((v): boolean => v === true).default(false),
+  diary_entry: nullableString,
   logged_at_hint: nullableString,
-  food: z
-    .object({
-      items: z.array(z.string()).default([]),
-      approx_carbs: levelEnum,
-      fiber: levelEnum,
-    })
-    .nullable()
-    .optional()
-    .transform((v) => v ?? null),
-  sleep: z
-    .object({
-      hours: nullableNumber,
-      quality: z
-        .any()
-        .transform((v): string | null =>
-          typeof v === 'string' && ['poor', 'ok', 'good'].includes(v)
-            ? v
-            : null,
-        ),
-    })
-    .nullable()
-    .optional()
-    .transform((v) => v ?? null),
-  mood: z
-    .object({
-      score_1_5: nullableNumber,
-      stress: levelEnum,
-      notes: nullableString,
-    })
-    .nullable()
-    .optional()
-    .transform((v) => v ?? null),
-  activity: z
-    .object({
-      kind: nullableString,
-      minutes: nullableNumber,
-    })
-    .nullable()
-    .optional()
-    .transform((v) => v ?? null),
   weight_kg: nullableNumber,
   summary: z.string().default('Записал.'),
+  spotted_facts: z.array(factActionSchema).default([]),
 });
 export type LogParsed = z.infer<typeof logSchema>;
 
@@ -119,6 +83,5 @@ export type AnalysisParsed = z.infer<typeof analysisSchema>;
 // ---------- 4) Чат (вопрос-ответ) ----------
 export const chatSchema = z.object({
   reply: z.string().default('Не совсем понял вопрос, но я тут 👀'),
-  spotted_facts: z.array(z.string()).default([]),
 });
 export type ChatParsed = z.infer<typeof chatSchema>;

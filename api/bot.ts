@@ -168,7 +168,7 @@ bot.command('logs', async (ctx) => {
       return;
     }
     const text = rows
-      .map((r) => `[${formatInTz(r.loggedAt, tz)}] (${r.type}) ${r.rawText}`)
+      .map((r) => `[${formatInTz(r.loggedAt, tz)}] ${r.rawText}`)
       .join('\n');
     await ctx.reply(`📋 Записи за сегодня:\n\n${text}`);
   } catch (err) {
