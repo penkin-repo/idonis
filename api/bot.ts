@@ -21,6 +21,16 @@ if (!BOT_TOKEN) throw new Error('Missing TELEGRAM_BOT_TOKEN');
 
 const bot = new Telegraf(BOT_TOKEN);
 
+bot.telegram.setMyCommands([
+  { command: 'start', description: 'Онбординг — рассказать о себе' },
+  { command: 'profile', description: 'Профиль (или обновить текстом)' },
+  { command: 'weight', description: 'Вес: /weight 80' },
+  { command: 'report', description: 'Отчёт за сегодня' },
+  { command: 'week', description: 'Отчёт за неделю' },
+  { command: 'logs', description: 'Записи за сегодня (отладка)' },
+  { command: 'help', description: 'Справка' },
+]).catch(() => {});
+
 const HELP_TEXT = [
   '<b>🤖 Трекер образа жизни</b>',
   '',
