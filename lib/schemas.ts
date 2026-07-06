@@ -53,6 +53,7 @@ export type ProfileParsed = z.infer<typeof profileSchema>;
 
 // ---------- 2) Логер ----------
 export const logSchema = z.object({
+  is_question: z.any().transform((v): boolean => v === true).default(false),
   type: z.any().transform((v): string => {
     const allowed = ['food', 'sleep', 'mood', 'activity', 'weight', 'other'];
     return typeof v === 'string' && allowed.includes(v) ? v : 'other';
@@ -114,3 +115,9 @@ export const analysisSchema = z.object({
   score_1_10: nullableNumber,
 });
 export type AnalysisParsed = z.infer<typeof analysisSchema>;
+
+// ---------- 4) Чат (вопрос-ответ) ----------
+export const chatSchema = z.object({
+  reply: z.string().default('Не совсем понял вопрос, но я тут 👀'),
+});
+export type ChatParsed = z.infer<typeof chatSchema>;

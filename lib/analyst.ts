@@ -2,8 +2,8 @@ import { and, eq, gte, lt, asc } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { logs, weights, reports, type User } from '../db/schema.js';
 import { callStructured } from './openrouter.js';
-import { ANALYST_PROMPT } from './prompts.js';
-import { analysisSchema } from './schemas.js';
+import { ANALYST_PROMPT, CHAT_PROMPT } from './prompts.js';
+import { analysisSchema, chatSchema } from './schemas.js';
 import { periodBounds, periodLabel, formatInTz } from './time.js';
 import { escapeHtml } from './profile.js';
 
@@ -112,6 +112,46 @@ function renderProfileForLlm(u: User): string {
   if (u.chronicConditions) parts.push(`хронические состояния: ${u.chronicConditions}`);
   if (u.goal) parts.push(`цель: ${u.goal}`);
   return parts.length ? parts.join('; ') : '(профиль не заполнен)';
+}
+
+/**
+ * Ответ на свободный вопрос пользователя с учётом профиля и последних логов.
+ */
+export async function answerQuestion(user: User, question: string): Promise<string> {
+  const tz = user.tz ?? 'Europe/Moscow';
+  const { startUnix } = periodBounds(tz, 1);
+
+  // Последние логи за сегодня — для контекста.
+  const recentLogs = await db
+    .select()
+    .from(logs)
+    .where(
+      and(
+        eq(logs.userId, user.id),
+        gte(logs.loggedAt, startUnix),
+      ),
+    )
+    .orderBy(asc(logs.loggedAt))
+    .limit(20);
+
+  const profileBlock = renderProfileForLlm(user);
+  const logsBlock = recentLogs
+    .map((l) => `- (${l.type}) ${l.rawText}`)
+    .join('\n');
+
+  const userContent = [
+    'ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ:',
+    profileBlock,
+    '',
+    'ЛОГИ ЗА СЕГОДНЯ:',
+    logsBlock || '(пока ничего не записано)',
+    '',
+    'ВОПРОС ПОЛЬЗОВАТЕЛЯ:',
+    question,
+  ].join('\n');
+
+  const result = await callStructured(CHAT_PROMPT, userContent, chatSchema);
+  return result.reply;
 }
 
 function renderReportHtml(

@@ -16,8 +16,13 @@ export async function logEvent(
   user: User,
   text: string,
   telegramMessageId: number | null,
-): Promise<string> {
+): Promise<{ summary: string; isQuestion: boolean }> {
   const parsed = await callStructured(LOGGER_PROMPT, text, logSchema);
+
+  // Если это вопрос или реплика без факта лога — не записываем в БД.
+  if (parsed.is_question) {
+    return { summary: parsed.summary, isQuestion: true };
+  }
 
   const loggedAt = hintToUnix(parsed.logged_at_hint, nowUnix());
 
@@ -42,5 +47,5 @@ export async function logEvent(
     await recordWeight(user.id, parsed.weight_kg);
   }
 
-  return parsed.summary;
+  return { summary: parsed.summary, isQuestion: false };
 }

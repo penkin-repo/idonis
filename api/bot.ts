@@ -3,7 +3,7 @@ import { Telegraf } from 'telegraf';
 import { message } from 'telegraf/filters';
 import { getOrCreateUser, updateProfileFromText, renderProfile, recordWeight } from '../lib/profile.js';
 import { logEvent } from '../lib/logger.js';
-import { buildReport } from '../lib/analyst.js';
+import { buildReport, answerQuestion } from '../lib/analyst.js';
 
 /**
  * ЕДИНСТВЕННЫЙ эндпоинт проекта (webhook-режим).
@@ -200,8 +200,16 @@ bot.on(message('text'), async (ctx) => {
     }
 
     // Обычный лог образа жизни.
-    const summary = await logEvent(user, text, ctx.message.message_id);
-    await ctx.reply(`✅ ${summary}`);
+    const result = await logEvent(user, text, ctx.message.message_id);
+
+    // Если логер определил, что это вопрос/реплика — маршрутизируем к аналитику.
+    if (result.isQuestion) {
+      const reply = await answerQuestion(user, text);
+      await ctx.reply(reply, { parse_mode: 'HTML' });
+      return;
+    }
+
+    await ctx.reply(`✅ ${result.summary}`);
   } catch (err) {
     console.error('text handler error:', err);
     const errMsg = err instanceof Error ? err.message : String(err);
