@@ -4,7 +4,7 @@ import { logs, weights, reports, type User } from '../db/schema.js';
 import { callStructured, MODEL_ANALYST } from './openrouter.js';
 import { ANALYST_PROMPT, CHAT_PROMPT } from './prompts.js';
 import { analysisSchema, chatSchema } from './schemas.js';
-import { periodBounds, periodLabel, formatInTz } from './time.js';
+import { periodBounds, periodLabel, formatInTz, nowUnix } from './time.js';
 import { escapeHtml } from './profile.js';
 
 /**
@@ -58,7 +58,11 @@ export async function buildReport(user: User, days: number): Promise<string> {
     .map((w) => `- [${formatInTz(w.measuredAt, tz)}] ${w.weightKg} кг`)
     .join('\n');
 
+  const nowStr = formatInTz(nowUnix(), tz, 'dd.MM.yyyy HH:mm (EEEE)');
+
   const userContent = [
+    `ТЕКУЩЕЕ ВРЕМЯ ПОЛЬЗОВАТЕЛЯ: ${nowStr} (TZ: ${tz})`,
+    '',
     'ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ:',
     profileBlock,
     '',
@@ -140,7 +144,11 @@ export async function answerQuestion(user: User, question: string): Promise<stri
     .map((l) => `- (${l.type}) ${l.rawText}`)
     .join('\n');
 
+  const nowStr = formatInTz(nowUnix(), tz, 'dd.MM.yyyy HH:mm (EEEE)');
+
   const userContent = [
+    `ТЕКУЩЕЕ ВРЕМЯ ПОЛЬЗОВАТЕЛЯ: ${nowStr} (TZ: ${tz})`,
+    '',
     'ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ:',
     profileBlock,
     '',
