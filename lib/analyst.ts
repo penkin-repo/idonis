@@ -115,7 +115,7 @@ function renderProfileForLlm(u: User): string {
 }
 
 function renderReportHtml(
-  a: import('./schemas.ts').AnalysisParsed,
+  a: import('./schemas.js').AnalysisParsed,
   days: number,
 ): string {
   const title = days <= 1 ? 'Отчёт за сегодня' : `Отчёт за ${days} дн.`;
