@@ -119,5 +119,6 @@ export type AnalysisParsed = z.infer<typeof analysisSchema>;
 // ---------- 4) Чат (вопрос-ответ) ----------
 export const chatSchema = z.object({
   reply: z.string().default('Не совсем понял вопрос, но я тут 👀'),
+  spotted_facts: z.array(z.string()).default([]),
 });
 export type ChatParsed = z.infer<typeof chatSchema>;

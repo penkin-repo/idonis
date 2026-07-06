@@ -1,6 +1,6 @@
-import { and, eq, gte, lt, asc } from 'drizzle-orm';
+import { and, eq, gte, lt, asc, desc } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { logs, weights, reports, type User } from '../db/schema.js';
+import { logs, weights, reports, chatMessages, facts, type User } from '../db/schema.js';
 import { callStructured, MODEL_ANALYST } from './openrouter.js';
 import { ANALYST_PROMPT, CHAT_PROMPT } from './prompts.js';
 import { analysisSchema, chatSchema } from './schemas.js';
@@ -58,6 +58,14 @@ export async function buildReport(user: User, days: number): Promise<string> {
     .map((w) => `- [${formatInTz(w.measuredAt, tz)}] ${w.weightKg} кг`)
     .join('\n');
 
+  // Подмеченные факты о пользователе
+  const userFacts = await db
+    .select()
+    .from(facts)
+    .where(eq(facts.userId, user.id))
+    .orderBy(desc(facts.createdAt))
+    .limit(30);
+
   const nowStr = formatInTz(nowUnix(), tz, 'dd.MM.yyyy HH:mm (EEEE)');
 
   const userContent = [
@@ -65,6 +73,9 @@ export async function buildReport(user: User, days: number): Promise<string> {
     '',
     'ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ:',
     profileBlock,
+    '',
+    'ИЗВЕСТНЫЕ ФАКТЫ О ПОЛЬЗОВАТЕЛЕ:',
+    userFacts.length ? userFacts.map((f) => `- ${f.fact}`).join('\n') : '(нет)',
     '',
     `ЛОГИ ЗА ПЕРИОД (${days === 1 ? 'сегодня' : `${days} дн.`}):`,
     logsBlock || '(нет)',
@@ -120,7 +131,8 @@ function renderProfileForLlm(u: User): string {
 }
 
 /**
- * Ответ на свободный вопрос пользователя с учётом профиля и последних логов.
+ * Ответ на свободный вопрос пользователя с учётом профиля, логов,
+ * последних 40 сообщений диалога и известных фактов.
  */
 export async function answerQuestion(user: User, question: string): Promise<string> {
   const tz = user.tz ?? 'Europe/Moscow';
@@ -139,10 +151,37 @@ export async function answerQuestion(user: User, question: string): Promise<stri
     .orderBy(asc(logs.loggedAt))
     .limit(20);
 
+  // Последние 40 сообщений чата — для памяти диалога.
+  const recentChat = await db
+    .select()
+    .from(chatMessages)
+    .where(eq(chatMessages.userId, user.id))
+    .orderBy(desc(chatMessages.createdAt))
+    .limit(40);
+
+  // Известные факты о пользователе.
+  const userFacts = await db
+    .select()
+    .from(facts)
+    .where(eq(facts.userId, user.id))
+    .orderBy(desc(facts.createdAt))
+    .limit(30);
+
   const profileBlock = renderProfileForLlm(user);
   const logsBlock = recentLogs
     .map((l) => `- (${l.type}) ${l.rawText}`)
     .join('\n');
+
+  // Чат-история в хронологическом порядке (от старых к новым).
+  const chatBlock = recentChat
+    .slice()
+    .reverse()
+    .map((m) => m.role === 'user' ? `Пользователь: ${m.content}` : `Аналитик: ${m.content}`)
+    .join('\n');
+
+  const factsBlock = userFacts.length
+    ? userFacts.map((f) => `- ${f.fact}`).join('\n')
+    : '(нет)';
 
   const nowStr = formatInTz(nowUnix(), tz, 'dd.MM.yyyy HH:mm (EEEE)');
 
@@ -152,14 +191,47 @@ export async function answerQuestion(user: User, question: string): Promise<stri
     'ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ:',
     profileBlock,
     '',
+    'ИЗВЕСТНЫЕ ФАКТЫ О ПОЛЬЗОВАТЕЛЕ:',
+    factsBlock,
+    '',
     'ЛОГИ ЗА СЕГОДНЯ:',
     logsBlock || '(пока ничего не записано)',
     '',
-    'ВОПРОС ПОЛЬЗОВАТЕЛЯ:',
+    'ИСТОРИЯ ДИАЛОГА (последние сообщения):',
+    chatBlock || '(это первое сообщение)',
+    '',
+    'НОВОЕ СООБЩЕНИЕ ПОЛЬЗОВАТЕЛЯ:',
     question,
   ].join('\n');
 
   const result = await callStructured(CHAT_PROMPT, userContent, chatSchema, MODEL_ANALYST);
+
+  // Сохраняем вопрос и ответ в историю чата.
+  const now = nowUnix();
+  try {
+    await db.insert(chatMessages).values([
+      { userId: user.id, role: 'user', content: question, createdAt: now },
+      { userId: user.id, role: 'assistant', content: result.reply, createdAt: now + 1 },
+    ]);
+  } catch (err) {
+    console.error('Failed to save chat history:', err);
+  }
+
+  // Сохраняем подмеченные факты.
+  if (result.spotted_facts.length > 0) {
+    try {
+      await db.insert(facts).values(
+        result.spotted_facts.map((fact) => ({
+          userId: user.id,
+          fact,
+          createdAt: now,
+        })),
+      );
+    } catch (err) {
+      console.error('Failed to save spotted facts:', err);
+    }
+  }
+
   return result.reply;
 }
 

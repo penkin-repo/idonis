@@ -99,6 +99,43 @@ export const reports = sqliteTable(
   }),
 );
 
+/** История чата (вопросы пользователя и ответы аналитика). */
+export const chatMessages = sqliteTable(
+  'chat_messages',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id),
+    role: text('role').notNull(), // 'user' | 'assistant'
+    content: text('content').notNull(),
+    createdAt: integer('created_at')
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => ({
+    userIdx: index('idx_chat_user_time').on(t.userId, t.createdAt),
+  }),
+);
+
+/** Факты, которые аналитик подметил в диалоге. */
+export const facts = sqliteTable(
+  'facts',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id),
+    fact: text('fact').notNull(),
+    createdAt: integer('created_at')
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => ({
+    userIdx: index('idx_facts_user').on(t.userId, t.createdAt),
+  }),
+);
+
 // Выведенные типы для типобезопасности во всём проекте.
 export type User = InferSelectModel<typeof users>;
 export type NewUser = InferInsertModel<typeof users>;
@@ -108,3 +145,7 @@ export type Log = InferSelectModel<typeof logs>;
 export type NewLog = InferInsertModel<typeof logs>;
 export type Report = InferSelectModel<typeof reports>;
 export type NewReport = InferInsertModel<typeof reports>;
+export type ChatMessage = InferSelectModel<typeof chatMessages>;
+export type NewChatMessage = InferInsertModel<typeof chatMessages>;
+export type Fact = InferSelectModel<typeof facts>;
+export type NewFact = InferInsertModel<typeof facts>;
