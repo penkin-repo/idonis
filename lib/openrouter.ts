@@ -21,8 +21,16 @@ export const MODEL_ANALYST = process.env.OPENROUTER_MODEL_ANALYST?.trim() || MOD
 
 /**
  * Вызывает LLM с требованием вернуть JSON, парсит и валидирует через zod.
- * Бросает ошибку, если JSON невалиден — вызывающий код обрабатывает fallback.
+ * Бросает ошибку с rawText, если JSON невалиден — вызывающий код может fallback.
  */
+export class LlmJsonError extends Error {
+  rawText: string;
+  constructor(rawText: string) {
+    super('LLM не вернул валидный JSON');
+    this.rawText = rawText;
+  }
+}
+
 export async function callStructured<S extends z.ZodTypeAny>(
   systemPrompt: string,
   userContent: string,
@@ -31,34 +39,28 @@ export async function callStructured<S extends z.ZodTypeAny>(
 ): Promise<z.infer<S>> {
   const useModel = model ?? MODEL_LOGGER;
 
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const completion = await client.chat.completions.create({
-      model: useModel,
-      temperature: 0.2,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userContent },
-      ],
-    });
+  const completion = await client.chat.completions.create({
+    model: useModel,
+    temperature: 0.2,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userContent },
+    ],
+  });
 
-    const raw = completion.choices[0]?.message?.content?.trim();
-    if (!raw) {
-      throw new Error('LLM вернул пустой ответ');
-    }
-
-    const parsed = tryParseJson(raw);
-    if (parsed !== null) {
-      return schema.parse(parsed);
-    }
-
-    // Если первый attempt не удался — попробуем ещё раз с явным напоминанием.
-    if (attempt === 0) {
-      console.error('JSON parse failed, retrying. Raw:', raw.slice(0, 200));
-    }
+  const raw = completion.choices[0]?.message?.content?.trim();
+  if (!raw) {
+    throw new Error('LLM вернул пустой ответ');
   }
 
-  throw new Error('LLM не вернул валидный JSON после 2 попыток');
+  const parsed = tryParseJson(raw);
+  if (parsed !== null) {
+    return schema.parse(parsed);
+  }
+
+  console.error('JSON parse failed. Raw:', raw.slice(0, 300));
+  throw new LlmJsonError(raw);
 }
 
 function tryParseJson(raw: string): unknown | null {

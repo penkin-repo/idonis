@@ -1,7 +1,7 @@
 import { and, eq, gte, lt, asc, desc } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { logs, weights, reports, chatMessages, facts, type User } from '../db/schema.js';
-import { callStructured, MODEL_ANALYST } from './openrouter.js';
+import { callStructured, MODEL_ANALYST, LlmJsonError } from './openrouter.js';
 import { ANALYST_PROMPT, CHAT_PROMPT } from './prompts.js';
 import { analysisSchema, chatSchema } from './schemas.js';
 import { periodBounds, periodLabel, formatInTz, nowUnix } from './time.js';
@@ -183,20 +183,31 @@ export async function answerQuestion(user: User, question: string): Promise<stri
     question,
   ].join('\n');
 
-  const result = await callStructured(CHAT_PROMPT, userContent, chatSchema, MODEL_ANALYST);
+  let reply: string;
+  try {
+    const result = await callStructured(CHAT_PROMPT, userContent, chatSchema, MODEL_ANALYST);
+    reply = result.reply;
+  } catch (err) {
+    if (err instanceof LlmJsonError) {
+      // LLM вернул текст без JSON — используем как есть.
+      reply = err.rawText;
+    } else {
+      throw err;
+    }
+  }
 
   // Сохраняем вопрос и ответ в историю чата.
   const now = nowUnix();
   try {
     await db.insert(chatMessages).values([
       { userId: user.id, role: 'user', content: question, createdAt: now },
-      { userId: user.id, role: 'assistant', content: result.reply, createdAt: now + 1 },
+      { userId: user.id, role: 'assistant', content: reply, createdAt: now + 1 },
     ]);
   } catch (err) {
     console.error('Failed to save chat history:', err);
   }
 
-  return result.reply;
+  return reply;
 }
 
 function renderReportHtml(
