@@ -1,7 +1,7 @@
 import { and, eq, gte, lt, asc } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { logs, weights, reports, type User } from '../db/schema.js';
-import { callStructured } from './openrouter.js';
+import { callStructured, MODEL_ANALYST } from './openrouter.js';
 import { ANALYST_PROMPT, CHAT_PROMPT } from './prompts.js';
 import { analysisSchema, chatSchema } from './schemas.js';
 import { periodBounds, periodLabel, formatInTz } from './time.js';
@@ -75,6 +75,7 @@ export async function buildReport(user: User, days: number): Promise<string> {
       ANALYST_PROMPT,
       userContent,
       analysisSchema,
+      MODEL_ANALYST,
     );
     html = renderReportHtml(analysis, days);
   } catch (err) {
@@ -150,7 +151,7 @@ export async function answerQuestion(user: User, question: string): Promise<stri
     question,
   ].join('\n');
 
-  const result = await callStructured(CHAT_PROMPT, userContent, chatSchema);
+  const result = await callStructured(CHAT_PROMPT, userContent, chatSchema, MODEL_ANALYST);
   return result.reply;
 }
 
