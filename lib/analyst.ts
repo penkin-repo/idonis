@@ -1,11 +1,11 @@
 import { and, eq, gte, lt, asc } from 'drizzle-orm';
-import { db } from '../db/client.ts';
-import { logs, weights, reports, type User } from '../db/schema.ts';
-import { callStructured } from './openrouter.ts';
-import { ANALYST_PROMPT } from './prompts.ts';
-import { analysisSchema } from './schemas.ts';
-import { periodBounds, periodLabel, formatInTz } from './time.ts';
-import { escapeHtml } from './profile.ts';
+import { db } from '../db/client.js';
+import { logs, weights, reports, type User } from '../db/schema.js';
+import { callStructured } from './openrouter.js';
+import { ANALYST_PROMPT } from './prompts.js';
+import { analysisSchema } from './schemas.js';
+import { periodBounds, periodLabel, formatInTz } from './time.js';
+import { escapeHtml } from './profile.js';
 
 /**
  * Агент-Аналитик: собирает логи и вес за период, отправляет профиль + данные

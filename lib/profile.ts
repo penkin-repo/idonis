@@ -1,10 +1,10 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../db/client.ts';
-import { users, weights, type User } from '../db/schema.ts';
-import { callStructured } from './openrouter.ts';
-import { PROFILE_PROMPT } from './prompts.ts';
-import { profileSchema } from './schemas.ts';
-import { nowUnix } from './time.ts';
+import { db } from '../db/client.js';
+import { users, weights, type User } from '../db/schema.js';
+import { callStructured } from './openrouter.js';
+import { PROFILE_PROMPT } from './prompts.js';
+import { profileSchema } from './schemas.js';
+import { nowUnix } from './time.js';
 
 /**
  * Находит пользователя по chatId или создаёт нового.

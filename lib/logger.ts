@@ -1,10 +1,10 @@
-import { db } from '../db/client.ts';
-import { logs, type User } from '../db/schema.ts';
-import { callStructured } from './openrouter.ts';
-import { LOGGER_PROMPT } from './prompts.ts';
-import { logSchema } from './schemas.ts';
-import { nowUnix, hintToUnix } from './time.ts';
-import { recordWeight } from './profile.ts';
+import { db } from '../db/client.js';
+import { logs, type User } from '../db/schema.js';
+import { callStructured } from './openrouter.js';
+import { LOGGER_PROMPT } from './prompts.js';
+import { logSchema } from './schemas.js';
+import { nowUnix, hintToUnix } from './time.js';
+import { recordWeight } from './profile.js';
 
 /**
  * Агент-Логер: парсит свободный текст события в структурированный JSON

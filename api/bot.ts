@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Telegraf } from 'telegraf';
 import { message } from 'telegraf/filters';
-import { getOrCreateUser, updateProfileFromText, renderProfile, recordWeight } from '../lib/profile.ts';
-import { logEvent } from '../lib/logger.ts';
-import { buildReport } from '../lib/analyst.ts';
+import { getOrCreateUser, updateProfileFromText, renderProfile, recordWeight } from '../lib/profile.js';
+import { logEvent } from '../lib/logger.js';
+import { buildReport } from '../lib/analyst.js';
 
 /**
  * ЕДИНСТВЕННЫЙ эндпоинт проекта (webhook-режим).
@@ -136,9 +136,9 @@ bot.command('logs', async (ctx) => {
   // Лёгкая отладочная команда: показать сырые записи за сегодня.
   const user = await getOrCreateUser(String(ctx.chat.id), ctx.from?.username ?? undefined);
   try {
-    const { db } = await import('../db/client.ts');
-    const { logs } = await import('../db/schema.ts');
-    const { periodBounds, formatInTz } = await import('../lib/time.ts');
+    const { db } = await import('../db/client.js');
+    const { logs } = await import('../db/schema.js');
+    const { periodBounds, formatInTz } = await import('../lib/time.js');
     const { and, eq, gte, lt, asc } = await import('drizzle-orm');
     const tz = user.tz ?? 'Europe/Moscow';
     const { startUnix, endUnix } = periodBounds(tz, 1);
