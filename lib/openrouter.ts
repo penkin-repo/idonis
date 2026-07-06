@@ -29,32 +29,60 @@ export async function callStructured<S extends z.ZodTypeAny>(
   schema: S,
   model?: string,
 ): Promise<z.infer<S>> {
-  const completion = await client.chat.completions.create({
-    model: model ?? MODEL_LOGGER,
-    temperature: 0.2,
-    response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userContent },
-    ],
-  });
+  const useModel = model ?? MODEL_LOGGER;
 
-  const raw = completion.choices[0]?.message?.content?.trim();
-  if (!raw) {
-    throw new Error('LLM вернул пустой ответ');
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const completion = await client.chat.completions.create({
+      model: useModel,
+      temperature: 0.2,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent },
+      ],
+    });
+
+    const raw = completion.choices[0]?.message?.content?.trim();
+    if (!raw) {
+      throw new Error('LLM вернул пустой ответ');
+    }
+
+    const parsed = tryParseJson(raw);
+    if (parsed !== null) {
+      return schema.parse(parsed);
+    }
+
+    // Если первый attempt не удался — попробуем ещё раз с явным напоминанием.
+    if (attempt === 0) {
+      console.error('JSON parse failed, retrying. Raw:', raw.slice(0, 200));
+    }
   }
 
-  let parsed: unknown;
+  throw new Error('LLM не вернул валидный JSON после 2 попыток');
+}
+
+function tryParseJson(raw: string): unknown | null {
+  // 1. Прямой парсинг.
   try {
-    parsed = JSON.parse(raw);
-  } catch {
-    // Иногда модель оборачивает JSON в ```json ... ``` — попробуем вычистить.
+    return JSON.parse(raw);
+  } catch { /* continue */ }
+
+  // 2. Очистка markdown-обёртки ```json ... ```.
+  try {
     const cleaned = raw
       .replace(/^```(?:json)?/i, '')
       .replace(/```$/i, '')
       .trim();
-    parsed = JSON.parse(cleaned);
+    return JSON.parse(cleaned);
+  } catch { /* continue */ }
+
+  // 3. Поиск первого { ... } блока в тексте.
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (match) {
+    try {
+      return JSON.parse(match[0]);
+    } catch { /* continue */ }
   }
 
-  return schema.parse(parsed);
+  return null;
 }

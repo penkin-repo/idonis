@@ -17,31 +17,25 @@ export async function buildReport(user: User, days: number): Promise<string> {
   const tz = user.tz ?? 'Europe/Moscow';
   const { startUnix, endUnix } = periodBounds(tz, days);
 
-  // Логи за период
-  const periodLogs = await db
-    .select()
-    .from(logs)
-    .where(
-      and(
-        eq(logs.userId, user.id),
-        gte(logs.loggedAt, startUnix),
-        lt(logs.loggedAt, endUnix),
-      ),
-    )
-    .orderBy(asc(logs.loggedAt));
-
-  // Замеры веса за период
-  const periodWeights = await db
-    .select()
-    .from(weights)
-    .where(
-      and(
-        eq(weights.userId, user.id),
-        gte(weights.measuredAt, startUnix),
-        lt(weights.measuredAt, endUnix),
-      ),
-    )
-    .orderBy(asc(weights.measuredAt));
+  // Параллелим все DB-запросы для скорости.
+  const [periodLogs, periodWeights, userFacts] = await Promise.all([
+    db
+      .select()
+      .from(logs)
+      .where(and(eq(logs.userId, user.id), gte(logs.loggedAt, startUnix), lt(logs.loggedAt, endUnix)))
+      .orderBy(asc(logs.loggedAt)),
+    db
+      .select()
+      .from(weights)
+      .where(and(eq(weights.userId, user.id), gte(weights.measuredAt, startUnix), lt(weights.measuredAt, endUnix)))
+      .orderBy(asc(weights.measuredAt)),
+    db
+      .select()
+      .from(facts)
+      .where(eq(facts.userId, user.id))
+      .orderBy(desc(facts.createdAt))
+      .limit(30),
+  ]);
 
   if (periodLogs.length === 0 && periodWeights.length === 0) {
     return days <= 1
@@ -52,19 +46,11 @@ export async function buildReport(user: User, days: number): Promise<string> {
   // Готовим компактный контекст для LLM.
   const profileBlock = renderProfileForLlm(user);
   const logsBlock = periodLogs
-    .map((l) => `- [${formatInTz(l.loggedAt, tz)}] (${l.type}) ${l.rawText}`)
+    .map((l) => `- [${formatInTz(l.loggedAt, tz)}] ${l.rawText}`)
     .join('\n');
   const weightsBlock = periodWeights
     .map((w) => `- [${formatInTz(w.measuredAt, tz)}] ${w.weightKg} кг`)
     .join('\n');
-
-  // Подмеченные факты о пользователе
-  const userFacts = await db
-    .select()
-    .from(facts)
-    .where(eq(facts.userId, user.id))
-    .orderBy(desc(facts.createdAt))
-    .limit(30);
 
   const nowStr = formatInTz(nowUnix(), tz, 'dd.MM.yyyy HH:mm (EEEE)');
 
@@ -138,38 +124,31 @@ export async function answerQuestion(user: User, question: string): Promise<stri
   const tz = user.tz ?? 'Europe/Moscow';
   const { startUnix } = periodBounds(tz, 1);
 
-  // Последние логи за сегодня — для контекста.
-  const recentLogs = await db
-    .select()
-    .from(logs)
-    .where(
-      and(
-        eq(logs.userId, user.id),
-        gte(logs.loggedAt, startUnix),
-      ),
-    )
-    .orderBy(asc(logs.loggedAt))
-    .limit(20);
-
-  // Последние 40 сообщений чата — для памяти диалога.
-  const recentChat = await db
-    .select()
-    .from(chatMessages)
-    .where(eq(chatMessages.userId, user.id))
-    .orderBy(desc(chatMessages.createdAt))
-    .limit(40);
-
-  // Известные факты о пользователе.
-  const userFacts = await db
-    .select()
-    .from(facts)
-    .where(eq(facts.userId, user.id))
-    .orderBy(desc(facts.createdAt))
-    .limit(30);
+  // Параллелим все DB-запросы для скорости.
+  const [recentLogs, recentChat, userFacts] = await Promise.all([
+    db
+      .select()
+      .from(logs)
+      .where(and(eq(logs.userId, user.id), gte(logs.loggedAt, startUnix)))
+      .orderBy(asc(logs.loggedAt))
+      .limit(20),
+    db
+      .select()
+      .from(chatMessages)
+      .where(eq(chatMessages.userId, user.id))
+      .orderBy(desc(chatMessages.createdAt))
+      .limit(40),
+    db
+      .select()
+      .from(facts)
+      .where(eq(facts.userId, user.id))
+      .orderBy(desc(facts.createdAt))
+      .limit(30),
+  ]);
 
   const profileBlock = renderProfileForLlm(user);
   const logsBlock = recentLogs
-    .map((l) => `- (${l.type}) ${l.rawText}`)
+    .map((l) => `- ${l.rawText}`)
     .join('\n');
 
   // Чат-история в хронологическом порядке (от старых к новым).
