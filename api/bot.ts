@@ -89,6 +89,7 @@ bot.command('profile', async (ctx) => {
   if (arg) {
     // Обновление профиля свободным текстом.
     try {
+      await ctx.sendChatAction('typing');
       const summary = await updateProfileFromText(user, arg);
       await ctx.reply(`✅ ${summary}`);
     } catch (err) {
@@ -121,6 +122,7 @@ bot.command('report', async (ctx) => {
     if (Number.isFinite(n) && n >= 1 && n <= 90) days = n;
   }
   await ctx.reply('⏳ Анализирую...');
+  await ctx.sendChatAction('typing');
   try {
     const report = await buildReport(user, days);
     await ctx.reply(report, { parse_mode: 'HTML' });
@@ -133,6 +135,7 @@ bot.command('report', async (ctx) => {
 bot.command('week', async (ctx) => {
   const user = await getOrCreateUser(String(ctx.chat.id), ctx.from?.username ?? undefined);
   await ctx.reply('⏳ Анализирую неделю...');
+  await ctx.sendChatAction('typing');
   try {
     const report = await buildReport(user, 7);
     await ctx.reply(report, { parse_mode: 'HTML' });
@@ -183,6 +186,8 @@ bot.on(message('text'), async (ctx) => {
   );
 
   try {
+    await ctx.sendChatAction('typing');
+
     if (!user.onboarded) {
       // Пока профиль не заполнен — трактуем сообщение как рассказ о себе.
       const summary = await updateProfileFromText(user, text);
@@ -199,7 +204,8 @@ bot.on(message('text'), async (ctx) => {
     await ctx.reply(`✅ ${summary}`);
   } catch (err) {
     console.error('text handler error:', err);
-    await ctx.reply('⚠️ Не удалось обработать сообщение. Попробуй переформулировать.');
+    const errMsg = err instanceof Error ? err.message : String(err);
+    await ctx.reply(`⚠️ Не удалось обработать сообщение: ${errMsg}. Попробуй переформулировать.`);
   }
 });
 

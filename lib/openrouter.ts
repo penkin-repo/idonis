@@ -14,7 +14,7 @@ const client = new OpenAI({
   },
 });
 
-export const MODEL = process.env.OPENROUTER_MODEL ?? 'openai/gpt-4o-mini';
+export const MODEL = process.env.OPENROUTER_MODEL?.trim() || 'openai/gpt-4o-mini';
 
 /**
  * Вызывает LLM с требованием вернуть JSON, парсит и валидирует через zod.
