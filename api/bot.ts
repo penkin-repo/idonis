@@ -62,6 +62,8 @@ bot.start(async (ctx) => {
     String(ctx.chat.id),
     ctx.from?.username ?? undefined,
   );
+  // Сбрасываем старую клавиатуру от предыдущей версии бота.
+  await ctx.reply(' ', { reply_markup: { remove_keyboard: true } });
   if (user.onboarded) {
     await ctx.reply(
       'С возвращением! 👋 Пиши, что ел/как спал/как самочувствие — я всё запишу. /help для команд.',
