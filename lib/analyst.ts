@@ -1,0 +1,144 @@
+import { and, eq, gte, lt, asc } from 'drizzle-orm';
+import { db } from '../db/client.ts';
+import { logs, weights, reports, type User } from '../db/schema.ts';
+import { callStructured } from './openrouter.ts';
+import { ANALYST_PROMPT } from './prompts.ts';
+import { analysisSchema } from './schemas.ts';
+import { periodBounds, periodLabel, formatInTz } from './time.ts';
+import { escapeHtml } from './profile.ts';
+
+/**
+ * Агент-Аналитик: собирает логи и вес за период, отправляет профиль + данные
+ * в LLM, формирует HTML-отчёт. Вызывается ПО КОМАНДЕ из бота (крона нет).
+ *
+ * @param days количество последних календарных суток (1 = сегодня).
+ */
+export async function buildReport(user: User, days: number): Promise<string> {
+  const tz = user.tz ?? 'Europe/Moscow';
+  const { startUnix, endUnix } = periodBounds(tz, days);
+
+  // Логи за период
+  const periodLogs = await db
+    .select()
+    .from(logs)
+    .where(
+      and(
+        eq(logs.userId, user.id),
+        gte(logs.loggedAt, startUnix),
+        lt(logs.loggedAt, endUnix),
+      ),
+    )
+    .orderBy(asc(logs.loggedAt));
+
+  // Замеры веса за период
+  const periodWeights = await db
+    .select()
+    .from(weights)
+    .where(
+      and(
+        eq(weights.userId, user.id),
+        gte(weights.measuredAt, startUnix),
+        lt(weights.measuredAt, endUnix),
+      ),
+    )
+    .orderBy(asc(weights.measuredAt));
+
+  if (periodLogs.length === 0 && periodWeights.length === 0) {
+    return days <= 1
+      ? '📭 За сегодня пока нет записей. Напиши, что ел, как спал или как самочувствие — и я всё запишу.'
+      : `📭 За последние ${days} дн. нет записей для анализа.`;
+  }
+
+  // Готовим компактный контекст для LLM.
+  const profileBlock = renderProfileForLlm(user);
+  const logsBlock = periodLogs
+    .map((l) => `- [${formatInTz(l.loggedAt, tz)}] (${l.type}) ${l.rawText}`)
+    .join('\n');
+  const weightsBlock = periodWeights
+    .map((w) => `- [${formatInTz(w.measuredAt, tz)}] ${w.weightKg} кг`)
+    .join('\n');
+
+  const userContent = [
+    'ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ:',
+    profileBlock,
+    '',
+    `ЛОГИ ЗА ПЕРИОД (${days === 1 ? 'сегодня' : `${days} дн.`}):`,
+    logsBlock || '(нет)',
+    '',
+    'ЗАМЕРЫ ВЕСА ЗА ПЕРИОД:',
+    weightsBlock || '(нет)',
+  ].join('\n');
+
+  let html: string;
+  try {
+    const analysis = await callStructured(
+      ANALYST_PROMPT,
+      userContent,
+      analysisSchema,
+    );
+    html = renderReportHtml(analysis, days);
+  } catch (err) {
+    console.error('Analyst LLM error:', err);
+    html =
+      '⚠️ Не удалось построить аналитический отчёт (ошибка LLM). Данные записаны, попробуй позже.';
+    return html;
+  }
+
+  // Сохраняем отчёт (best-effort).
+  try {
+    await db.insert(reports).values({
+      userId: user.id,
+      periodLabel: periodLabel(days),
+      content: html,
+    });
+  } catch (err) {
+    console.error('Failed to save report:', err);
+  }
+
+  return html;
+}
+
+function renderProfileForLlm(u: User): string {
+  const parts: string[] = [];
+  if (u.name) parts.push(`имя: ${u.name}`);
+  if (u.age != null) parts.push(`возраст: ${u.age}`);
+  if (u.sex) parts.push(`пол: ${u.sex === 'male' ? 'мужской' : 'женский'}`);
+  if (u.heightCm != null) parts.push(`рост: ${u.heightCm} см`);
+  if (u.currentWeightKg != null) parts.push(`вес: ${u.currentWeightKg} кг`);
+  if (u.activityLevel) parts.push(`активность: ${u.activityLevel}`);
+  if (u.workType) parts.push(`работа: ${u.workType}`);
+  if (u.sleepSchedule) parts.push(`режим сна: ${u.sleepSchedule}`);
+  if (u.dietRestrictions) parts.push(`ограничения питания: ${u.dietRestrictions}`);
+  if (u.chronicConditions) parts.push(`хронические состояния: ${u.chronicConditions}`);
+  if (u.goal) parts.push(`цель: ${u.goal}`);
+  return parts.length ? parts.join('; ') : '(профиль не заполнен)';
+}
+
+function renderReportHtml(
+  a: import('./schemas.ts').AnalysisParsed,
+  days: number,
+): string {
+  const title = days <= 1 ? 'Отчёт за сегодня' : `Отчёт за ${days} дн.`;
+  const recs =
+    a.recommendations.length > 0
+      ? a.recommendations.map((r) => `• ${escapeHtml(r)}`).join('\n')
+      : '—';
+
+  const score = a.score_1_10 != null ? `${a.score_1_10}/10` : '—';
+
+  return [
+    `<b>📊 ${title}</b>`,
+    '',
+    `<b>${escapeHtml(a.headline)}</b>`,
+    `Оценка: <b>${score}</b>`,
+    '',
+    `🍞 <b>Инсулиновые качели:</b> ${escapeHtml(a.insulin_swings)}`,
+    `😰 <b>Гормоны стресса:</b> ${escapeHtml(a.stress_hormones)}`,
+    `🥦 <b>Буфер клетчатки:</b> ${escapeHtml(a.fiber_buffer)}`,
+    `⚖️ <b>Динамика веса:</b> ${escapeHtml(a.weight_trend)}`,
+    '',
+    `💡 <b>Рекомендации:</b>\n${recs}`,
+    '',
+    '<i>⚕️ Это образовательные эвристики, а не медицинский диагноз. При проблемах со здоровьем обратись к врачу.</i>',
+  ].join('\n');
+}

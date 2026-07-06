@@ -1,0 +1,116 @@
+import { z } from 'zod';
+
+/**
+ * Хелпер: LLM часто отдаёт строку "null" или пустую строку вместо настоящего null.
+ * Нормализуем такие значения.
+ */
+const nullableString = z
+  .any()
+  .transform((v): string | null =>
+    v == null || v === '' || v === 'null' ? null : String(v),
+  );
+
+const nullableNumber = z.any().transform((v): number | null => {
+  if (v == null || v === '' || v === 'null') return null;
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+});
+
+const sexEnum = z
+  .any()
+  .transform((v): 'male' | 'female' | null =>
+    v === 'male' || v === 'female' ? v : null,
+  );
+
+const levelEnum = z.any().transform((v): 'low' | 'medium' | 'high' | null => {
+  const allowed = ['low', 'medium', 'high'];
+  return typeof v === 'string' && allowed.includes(v)
+    ? (v as 'low' | 'medium' | 'high')
+    : null;
+});
+
+// ---------- 1) Профиль / онбординг ----------
+export const profileSchema = z.object({
+  name: nullableString,
+  age: nullableNumber,
+  sex: sexEnum,
+  height_cm: nullableNumber,
+  weight_kg: nullableNumber,
+  activity_level: z
+    .any()
+    .transform((v): string | null => {
+      const allowed = ['sedentary', 'light', 'moderate', 'active'];
+      return typeof v === 'string' && allowed.includes(v) ? v : null;
+    }),
+  work_type: nullableString,
+  sleep_schedule: nullableString,
+  diet_restrictions: nullableString,
+  chronic_conditions: nullableString,
+  goal: nullableString,
+  summary: z.string().default('Профиль обновлён.'),
+});
+export type ProfileParsed = z.infer<typeof profileSchema>;
+
+// ---------- 2) Логер ----------
+export const logSchema = z.object({
+  type: z.any().transform((v): string => {
+    const allowed = ['food', 'sleep', 'mood', 'activity', 'weight', 'other'];
+    return typeof v === 'string' && allowed.includes(v) ? v : 'other';
+  }),
+  logged_at_hint: nullableString,
+  food: z
+    .object({
+      items: z.array(z.string()).default([]),
+      approx_carbs: levelEnum,
+      fiber: levelEnum,
+    })
+    .nullable()
+    .optional()
+    .transform((v) => v ?? null),
+  sleep: z
+    .object({
+      hours: nullableNumber,
+      quality: z
+        .any()
+        .transform((v): string | null =>
+          typeof v === 'string' && ['poor', 'ok', 'good'].includes(v)
+            ? v
+            : null,
+        ),
+    })
+    .nullable()
+    .optional()
+    .transform((v) => v ?? null),
+  mood: z
+    .object({
+      score_1_5: nullableNumber,
+      stress: levelEnum,
+      notes: nullableString,
+    })
+    .nullable()
+    .optional()
+    .transform((v) => v ?? null),
+  activity: z
+    .object({
+      kind: nullableString,
+      minutes: nullableNumber,
+    })
+    .nullable()
+    .optional()
+    .transform((v) => v ?? null),
+  weight_kg: nullableNumber,
+  summary: z.string().default('Записал.'),
+});
+export type LogParsed = z.infer<typeof logSchema>;
+
+// ---------- 3) Аналитик ----------
+export const analysisSchema = z.object({
+  headline: z.string().default('Итог периода'),
+  insulin_swings: z.string().default('—'),
+  stress_hormones: z.string().default('—'),
+  fiber_buffer: z.string().default('—'),
+  weight_trend: z.string().default('—'),
+  recommendations: z.array(z.string()).default([]),
+  score_1_10: nullableNumber,
+});
+export type AnalysisParsed = z.infer<typeof analysisSchema>;
