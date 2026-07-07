@@ -81,8 +81,13 @@ export async function buildReport(user: User, days: number): Promise<string> {
     html = renderReportHtml(analysis, days);
   } catch (err) {
     console.error('Analyst LLM error:', err);
-    html =
-      '⚠️ Не удалось построить аналитический отчёт (ошибка LLM). Данные записаны, попробуй позже.';
+    if (err instanceof LlmJsonError) {
+      // LLM вернул текст без JSON — используем как отчёт.
+      html = err.rawText;
+    } else {
+      html =
+        '⚠️ Не удалось построить аналитический отчёт (ошибка LLM). Данные записаны, попробуй позже.';
+    }
     return html;
   }
 
