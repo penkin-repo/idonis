@@ -142,7 +142,7 @@ export async function answerQuestion(user: User, question: string): Promise<stri
       .from(chatMessages)
       .where(eq(chatMessages.userId, user.id))
       .orderBy(desc(chatMessages.createdAt))
-      .limit(40),
+      .limit(20),
     db
       .select()
       .from(facts)
