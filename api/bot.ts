@@ -52,6 +52,7 @@ const HELP_TEXT = [
   '/report 3 — отчёт за последние 3 дня',
   '/week — отчёт за 7 дней',
   '/logs — записи за сегодня (отладка)',
+  '/facts — известные факты обо мне',
   '/del — показать последние записи (или /del #ID для удаления)',
   '/help — эта справка',
 ].join('\n');
@@ -194,6 +195,29 @@ bot.command('logs', async (ctx) => {
   } catch (err) {
     console.error('logs error:', err);
     await ctx.reply('⚠️ Не удалось получить записи.');
+  }
+});
+
+bot.command('facts', async (ctx) => {
+  const user = await getOrCreateUser(String(ctx.chat.id), ctx.from?.username ?? undefined);
+  try {
+    const { db } = await import('../db/client.js');
+    const { facts } = await import('../db/schema.js');
+    const { eq, desc } = await import('drizzle-orm');
+    const rows = await db
+      .select()
+      .from(facts)
+      .where(eq(facts.userId, user.id))
+      .orderBy(desc(facts.createdAt));
+    if (rows.length === 0) {
+      await ctx.reply('Пока нет известных фактов о тебе. Они появятся автоматически из твоих сообщений.');
+      return;
+    }
+    const list = rows.map((f, i) => `${i + 1}. ${f.fact}`).join('\n');
+    await ctx.reply(`🧠 Известные факты обо мне:\n\n${list}`);
+  } catch (err) {
+    console.error('facts error:', err);
+    await ctx.reply('⚠️ Не удалось получить факты.');
   }
 });
 
