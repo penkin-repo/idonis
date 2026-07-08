@@ -4,7 +4,7 @@ import { logs, facts, type User } from '../db/schema.js';
 import { callStructured } from './openrouter.js';
 import { LOGGER_PROMPT } from './prompts.js';
 import { logSchema } from './schemas.js';
-import { nowUnix, hintToUnix, periodBounds } from './time.js';
+import { nowUnix, hintToUnix, periodBounds, formatInTz } from './time.js';
 import { recordWeight } from './profile.js';
 
 const REPEAT_WORDS = /\b(опять|повтор|снова|ещё раз|еще раз)\b/i;
@@ -19,7 +19,15 @@ export async function logEvent(
   telegramMessageId: number | null,
 ): Promise<{ summary: string; isQuestion: boolean }> {
   const tz = user.tz ?? 'Europe/Moscow';
-  const parsed = await callStructured(LOGGER_PROMPT, text, logSchema);
+  const nowStr = formatInTz(nowUnix(), tz, "yyyy-MM-dd'T'HH:mm:ss (EEEE, dd.MM.yyyy)");
+  const userContent = [
+    `ТЕКУЩЕЕ ВРЕМЯ ПОЛЬЗОВАТЕЛЯ: ${nowStr} (TZ: ${tz})`,
+    'Используй эту дату для event_time_hint, если пользователь не указал другую.',
+    '',
+    'СООБЩЕНИЕ ПОЛЬЗОВАТЕЛЯ:',
+    text,
+  ].join('\n');
+  const parsed = await callStructured(LOGGER_PROMPT, userContent, logSchema);
 
   // Обрабатываем факты (add/remove) в любом случае — даже для вопросов.
   await processFacts(user.id, parsed.spotted_facts);
@@ -29,7 +37,10 @@ export async function logEvent(
     return { summary: parsed.summary, isQuestion: true };
   }
 
-  const eventTime = hintToUnix(parsed.event_time_hint, nowUnix(), tz);
+  const now = nowUnix();
+  const eventTime = hintToUnix(parsed.event_time_hint, now, tz);
+  // Защита: если LLM поставил будущее время — используем текущее.
+  const safeEventTime = eventTime > now + 300 ? now : eventTime;
   const loggedAt = nowUnix();
   const diaryText = parsed.diary_entry ?? text;
   const entryType = parsed.type || 'note';
@@ -38,8 +49,8 @@ export async function logEvent(
   // и нет слов-повторов (опять, снова, ещё раз) → дубль.
   if (!REPEAT_WORDS.test(text)) {
     const { startUnix, endUnix } = periodBounds(tz, 1);
-    const windowStart = eventTime - 600; // ±10 минут
-    const windowEnd = eventTime + 600;
+    const windowStart = safeEventTime - 600; // ±10 минут
+    const windowEnd = safeEventTime + 600;
 
     const existing = await db
       .select()
@@ -70,7 +81,7 @@ export async function logEvent(
       type: entryType,
       rawText: diaryText,
       payload: JSON.stringify(parsed),
-      eventTime,
+      eventTime: safeEventTime,
       loggedAt,
       status: 'active',
     });
