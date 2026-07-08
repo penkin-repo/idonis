@@ -57,10 +57,17 @@ export function periodLabel(days: number): string {
 
 /**
  * Парсит подсказку времени от LLM (ISO строка) в unix-секунды.
+ * Интерпретирует время в таймзоне пользователя.
  * Если не получилось — возвращает fallback.
  */
-export function hintToUnix(hint: string | null, fallbackUnix: number): number {
+export function hintToUnix(hint: string | null, fallbackUnix: number, tz = 'Europe/Moscow'): number {
   if (!hint) return fallbackUnix;
   const t = Date.parse(hint);
-  return Number.isFinite(t) ? Math.floor(t / 1000) : fallbackUnix;
+  if (!Number.isFinite(t)) return fallbackUnix;
+  // Если строка без TZ — интерпретируем как время пользователя.
+  if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(hint)) {
+    const zoned = fromZonedTime(new Date(t), tz);
+    return Math.floor(zoned.getTime() / 1000);
+  }
+  return Math.floor(t / 1000);
 }

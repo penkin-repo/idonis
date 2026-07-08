@@ -26,7 +26,8 @@ export async function logEvent(
   }
 
   // Записываем в дневник.
-  const loggedAt = hintToUnix(parsed.logged_at_hint, nowUnix());
+  const tz = user.tz ?? 'Europe/Moscow';
+  const loggedAt = hintToUnix(parsed.logged_at_hint, nowUnix(), tz);
   const diaryText = parsed.diary_entry ?? text;
 
   try {
