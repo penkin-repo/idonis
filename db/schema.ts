@@ -66,17 +66,20 @@ export const logs = sqliteTable(
       .notNull()
       .references(() => users.id),
     telegramMessageId: integer('telegram_message_id'),
-    type: text('type').notNull(), // 'food' | 'sleep' | 'mood' | 'activity' | 'weight' | 'other'
+    type: text('type').notNull(), // 'food' | 'sleep' | 'med' | 'drink' | 'mood' | 'activity' | 'note'
     rawText: text('raw_text').notNull(),
     payload: text('payload').notNull(), // JSON-строка
-    loggedAt: integer('logged_at').notNull(),
+    eventTime: integer('event_time').notNull(), // когда СЛУЧИЛОСЬ событие
+    loggedAt: integer('logged_at').notNull(), // когда пользователь написал
+    status: text('status').notNull().default('active'), // 'active' | 'deleted'
     createdAt: integer('created_at')
       .notNull()
       .default(sql`(unixepoch())`),
   },
   (t) => ({
     dedupIdx: uniqueIndex('idx_logs_dedup').on(t.userId, t.telegramMessageId),
-    userTimeIdx: index('idx_logs_user_time').on(t.userId, t.loggedAt),
+    userEventIdx: index('idx_logs_user_event').on(t.userId, t.eventTime),
+    userLoggedIdx: index('idx_logs_user_logged').on(t.userId, t.loggedAt),
   }),
 );
 

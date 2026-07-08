@@ -52,7 +52,7 @@ const HELP_TEXT = [
   '/report 3 — отчёт за последние 3 дня',
   '/week — отчёт за 7 дней',
   '/logs — записи за сегодня (отладка)',
-  '/del — удалить последнюю запись',
+  '/del — показать последние записи (или /del #ID для удаления)',
   '/help — эта справка',
 ].join('\n');
 
@@ -151,8 +151,17 @@ bot.command('week', async (ctx) => {
   }
 });
 
+const TYPE_ICONS: Record<string, string> = {
+  food: '🍽',
+  sleep: '😴',
+  med: '💊',
+  drink: '☕',
+  mood: '🧠',
+  activity: '🏃',
+  note: '📝',
+};
+
 bot.command('logs', async (ctx) => {
-  // Лёгкая отладочная команда: показать сырые записи за сегодня.
   const user = await getOrCreateUser(String(ctx.chat.id), ctx.from?.username ?? undefined);
   try {
     const { db } = await import('../db/client.js');
@@ -164,16 +173,24 @@ bot.command('logs', async (ctx) => {
     const rows = await db
       .select()
       .from(logs)
-      .where(and(eq(logs.userId, user.id), gte(logs.loggedAt, startUnix), lt(logs.loggedAt, endUnix)))
-      .orderBy(asc(logs.loggedAt));
+      .where(and(
+        eq(logs.userId, user.id),
+        eq(logs.status, 'active'),
+        gte(logs.eventTime, startUnix),
+        lt(logs.eventTime, endUnix),
+      ))
+      .orderBy(asc(logs.eventTime));
     if (rows.length === 0) {
       await ctx.reply('За сегодня записей нет.');
       return;
     }
     const text = rows
-      .map((r) => `[${formatInTz(r.loggedAt, tz)}] ${r.rawText}`)
+      .map((r) => {
+        const icon = TYPE_ICONS[r.type] ?? '📝';
+        return `[#${r.id}] ${icon} [${formatInTz(r.eventTime, tz)}] ${r.rawText}`;
+      })
       .join('\n');
-    await ctx.reply(`📋 Записи за сегодня:\n\n${text}`);
+    await ctx.reply(`📋 Записи за сегодня:\n\n${text}\n\n💡 /del #ID — удалить запись`);
   } catch (err) {
     console.error('logs error:', err);
     await ctx.reply('⚠️ Не удалось получить записи.');
@@ -184,22 +201,48 @@ bot.command('logs', async (ctx) => {
 
 bot.command('del', async (ctx) => {
   const user = await getOrCreateUser(String(ctx.chat.id), ctx.from?.username ?? undefined);
+  const arg = ctx.message.text.replace(/^\/del(@\w+)?\s*/i, '').trim();
   try {
     const { db } = await import('../db/client.js');
     const { logs } = await import('../db/schema.js');
-    const { eq, desc } = await import('drizzle-orm');
-    const last = await db
+    const { eq, desc, and } = await import('drizzle-orm');
+
+    // Если указан ID (#42 или 42) — удаляем по ID.
+    const idMatch = arg.match(/^#?(\d+)$/);
+    if (idMatch) {
+      const targetId = parseInt(idMatch[1], 10);
+      const row = await db
+        .select()
+        .from(logs)
+        .where(and(eq(logs.id, targetId), eq(logs.userId, user.id)))
+        .limit(1);
+      if (row.length === 0) {
+        await ctx.reply(`Запись #${targetId} не найдена.`);
+        return;
+      }
+      await db.update(logs).set({ status: 'deleted' }).where(eq(logs.id, targetId));
+      await ctx.reply(`🗑️ Удалил: "${row[0].rawText}"`);
+      return;
+    }
+
+    // Без аргумента — показать последние 5 записей для выбора.
+    const recent = await db
       .select()
       .from(logs)
-      .where(eq(logs.userId, user.id))
-      .orderBy(desc(logs.loggedAt))
-      .limit(1);
-    if (last.length === 0) {
+      .where(and(eq(logs.userId, user.id), eq(logs.status, 'active')))
+      .orderBy(desc(logs.eventTime))
+      .limit(5);
+    if (recent.length === 0) {
       await ctx.reply('Записей нет, удалять нечего.');
       return;
     }
-    await db.delete(logs).where(eq(logs.id, last[0].id));
-    await ctx.reply(`🗑️ Удалил: "${last[0].rawText}"`);
+    const list = recent
+      .map((r) => {
+        const icon = TYPE_ICONS[r.type] ?? '📝';
+        return `#${r.id} ${icon} ${r.rawText}`;
+      })
+      .join('\n');
+    await ctx.reply(`Последние записи:\n\n${list}\n\n💡 /del #ID — удалить нужную`);
   } catch (err) {
     console.error('del error:', err);
     await ctx.reply('⚠️ Не удалось удалить запись.');

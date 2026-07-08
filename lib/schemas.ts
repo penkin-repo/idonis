@@ -59,8 +59,9 @@ const factActionSchema = z.object({
 
 export const logSchema = z.object({
   is_question: z.any().transform((v): boolean => v === true).default(false),
+  type: z.string().default('note'), // food|sleep|med|drink|mood|activity|note
   diary_entry: nullableString,
-  logged_at_hint: nullableString,
+  event_time_hint: nullableString, // ISO время когда СЛУЧИЛОСЬ событие
   weight_kg: nullableNumber,
   summary: z.string().default('Записал.'),
   spotted_facts: z.array(factActionSchema).default([]),

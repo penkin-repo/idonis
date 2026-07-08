@@ -1,6 +1,6 @@
 import { and, eq, gte, lt, asc, desc } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { logs, weights, reports, chatMessages, facts, type User } from '../db/schema.js';
+import { logs, weights, reports, facts, type User } from '../db/schema.js';
 import { callStructured, MODEL_ANALYST, LlmJsonError } from './openrouter.js';
 import { ANALYST_PROMPT, CHAT_PROMPT } from './prompts.js';
 import { analysisSchema, chatSchema } from './schemas.js';
@@ -22,8 +22,13 @@ export async function buildReport(user: User, days: number): Promise<string> {
     db
       .select()
       .from(logs)
-      .where(and(eq(logs.userId, user.id), gte(logs.loggedAt, startUnix), lt(logs.loggedAt, endUnix)))
-      .orderBy(asc(logs.loggedAt)),
+      .where(and(
+        eq(logs.userId, user.id),
+        eq(logs.status, 'active'),
+        gte(logs.eventTime, startUnix),
+        lt(logs.eventTime, endUnix),
+      ))
+      .orderBy(asc(logs.eventTime)),
     db
       .select()
       .from(weights)
@@ -46,7 +51,7 @@ export async function buildReport(user: User, days: number): Promise<string> {
   // Готовим компактный контекст для LLM.
   const profileBlock = renderProfileForLlm(user);
   const logsBlock = periodLogs
-    .map((l) => `- [${formatInTz(l.loggedAt, tz)}] ${l.rawText}`)
+    .map((l) => `- [${formatInTz(l.eventTime, tz)}] (${l.type}) ${l.rawText}`)
     .join('\n');
   const weightsBlock = periodWeights
     .map((w) => `- [${formatInTz(w.measuredAt, tz)}] ${w.weightKg} кг`)
@@ -122,27 +127,25 @@ function renderProfileForLlm(u: User): string {
 }
 
 /**
- * Ответ на свободный вопрос пользователя с учётом профиля, логов,
- * последних 40 сообщений диалога и известных фактов.
+ * Ответ на свободный вопрос пользователя с учётом профиля, логов и фактов.
+ * Аналитик НЕ видит историю чата — только записи из дневника.
  */
 export async function answerQuestion(user: User, question: string): Promise<string> {
   const tz = user.tz ?? 'Europe/Moscow';
   const { startUnix } = periodBounds(tz, 1);
 
   // Параллелим все DB-запросы для скорости.
-  const [recentLogs, recentChat, userFacts] = await Promise.all([
+  const [recentLogs, userFacts] = await Promise.all([
     db
       .select()
       .from(logs)
-      .where(and(eq(logs.userId, user.id), gte(logs.loggedAt, startUnix)))
-      .orderBy(asc(logs.loggedAt))
-      .limit(20),
-    db
-      .select()
-      .from(chatMessages)
-      .where(eq(chatMessages.userId, user.id))
-      .orderBy(desc(chatMessages.createdAt))
-      .limit(20),
+      .where(and(
+        eq(logs.userId, user.id),
+        eq(logs.status, 'active'),
+        gte(logs.eventTime, startUnix),
+      ))
+      .orderBy(asc(logs.eventTime))
+      .limit(30),
     db
       .select()
       .from(facts)
@@ -153,14 +156,7 @@ export async function answerQuestion(user: User, question: string): Promise<stri
 
   const profileBlock = renderProfileForLlm(user);
   const logsBlock = recentLogs
-    .map((l) => `- ${l.rawText}`)
-    .join('\n');
-
-  // Чат-история в хронологическом порядке (от старых к новым).
-  const chatBlock = recentChat
-    .slice()
-    .reverse()
-    .map((m) => m.role === 'user' ? `Пользователь: ${m.content}` : `Аналитик: ${m.content}`)
+    .map((l) => `- [${formatInTz(l.eventTime, tz)}] (${l.type}) ${l.rawText}`)
     .join('\n');
 
   const factsBlock = userFacts.length
@@ -181,9 +177,6 @@ export async function answerQuestion(user: User, question: string): Promise<stri
     'ЛОГИ ЗА СЕГОДНЯ:',
     logsBlock || '(пока ничего не записано)',
     '',
-    'ИСТОРИЯ ДИАЛОГА (последние сообщения):',
-    chatBlock || '(это первое сообщение)',
-    '',
     'НОВОЕ СООБЩЕНИЕ ПОЛЬЗОВАТЕЛЯ:',
     question,
   ].join('\n');
@@ -199,17 +192,6 @@ export async function answerQuestion(user: User, question: string): Promise<stri
     } else {
       throw err;
     }
-  }
-
-  // Сохраняем вопрос и ответ в историю чата.
-  const now = nowUnix();
-  try {
-    await db.insert(chatMessages).values([
-      { userId: user.id, role: 'user', content: question, createdAt: now },
-      { userId: user.id, role: 'assistant', content: reply, createdAt: now + 1 },
-    ]);
-  } catch (err) {
-    console.error('Failed to save chat history:', err);
   }
 
   return reply;
