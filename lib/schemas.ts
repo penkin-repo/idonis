@@ -59,7 +59,6 @@ const factActionSchema = z.object({
 
 export const logSchema = z.object({
   is_question: z.any().transform((v): boolean => v === true).default(false),
-  is_duplicate: z.any().transform((v): boolean => v === true).default(false),
   diary_entry: nullableString,
   logged_at_hint: nullableString,
   weight_kg: nullableNumber,

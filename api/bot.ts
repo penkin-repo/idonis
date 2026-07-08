@@ -52,6 +52,7 @@ const HELP_TEXT = [
   '/report 3 — отчёт за последние 3 дня',
   '/week — отчёт за 7 дней',
   '/logs — записи за сегодня (отладка)',
+  '/del — удалить последнюю запись',
   '/help — эта справка',
 ].join('\n');
 
@@ -180,6 +181,30 @@ bot.command('logs', async (ctx) => {
 });
 
 // ---------- Свободный текст ----------
+
+bot.command('del', async (ctx) => {
+  const user = await getOrCreateUser(String(ctx.chat.id), ctx.from?.username ?? undefined);
+  try {
+    const { db } = await import('../db/client.js');
+    const { logs } = await import('../db/schema.js');
+    const { eq, desc } = await import('drizzle-orm');
+    const last = await db
+      .select()
+      .from(logs)
+      .where(eq(logs.userId, user.id))
+      .orderBy(desc(logs.loggedAt))
+      .limit(1);
+    if (last.length === 0) {
+      await ctx.reply('Записей нет, удалять нечего.');
+      return;
+    }
+    await db.delete(logs).where(eq(logs.id, last[0].id));
+    await ctx.reply(`🗑️ Удалил: "${last[0].rawText}"`);
+  } catch (err) {
+    console.error('del error:', err);
+    await ctx.reply('⚠️ Не удалось удалить запись.');
+  }
+});
 
 bot.on(message('text'), async (ctx) => {
   const text = ctx.message.text.trim();

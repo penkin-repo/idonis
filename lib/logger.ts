@@ -1,50 +1,21 @@
-import { and, eq, gte, asc, like } from 'drizzle-orm';
+import { eq, and, like } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { logs, facts, type User } from '../db/schema.js';
 import { callStructured } from './openrouter.js';
 import { LOGGER_PROMPT } from './prompts.js';
 import { logSchema } from './schemas.js';
-import { nowUnix, hintToUnix, periodBounds, formatInTz } from './time.js';
+import { nowUnix, hintToUnix } from './time.js';
 import { recordWeight } from './profile.js';
 
 /**
  * Агент-Логер: записывает события в дневник, извлекает факты о пользователе.
- * Передаёт в LLM историю за сегодня — для дедупликации.
  */
 export async function logEvent(
   user: User,
   text: string,
   telegramMessageId: number | null,
 ): Promise<{ summary: string; isQuestion: boolean }> {
-  const tz = user.tz ?? 'Europe/Moscow';
-  const { startUnix } = periodBounds(tz, 1);
-
-  // Последние записи за сегодня — для дедупликации.
-  const todayLogs = await db
-    .select()
-    .from(logs)
-    .where(
-      and(
-        eq(logs.userId, user.id),
-        gte(logs.loggedAt, startUnix),
-      ),
-    )
-    .orderBy(asc(logs.loggedAt))
-    .limit(20);
-
-  const historyBlock = todayLogs
-    .map((l) => `- [${formatInTz(l.loggedAt, tz)}] ${l.rawText}`)
-    .join('\n');
-
-  const userContent = [
-    'ИСТОРИЯ ЗА СЕГОДНЯ (для дедупликации):',
-    historyBlock || '(пока пусто)',
-    '',
-    'НОВОЕ СООБЩЕНИЕ ПОЛЬЗОВАТЕЛЯ:',
-    text,
-  ].join('\n');
-
-  const parsed = await callStructured(LOGGER_PROMPT, userContent, logSchema);
+  const parsed = await callStructured(LOGGER_PROMPT, text, logSchema);
 
   // Обрабатываем факты (add/remove) в любом случае — даже для вопросов.
   await processFacts(user.id, parsed.spotted_facts);
@@ -52,11 +23,6 @@ export async function logEvent(
   // Если это вопрос — не записываем в дневник.
   if (parsed.is_question) {
     return { summary: parsed.summary, isQuestion: true };
-  }
-
-  // Если дубликат — не записываем.
-  if (parsed.is_duplicate) {
-    return { summary: 'Уже записано ранее 👌', isQuestion: false };
   }
 
   // Записываем в дневник.
