@@ -53,8 +53,10 @@ export type ProfileParsed = z.infer<typeof profileSchema>;
 
 // ---------- 2) Логер (дневник) ----------
 const factActionSchema = z.object({
-  fact: z.string(),
-  action: z.enum(['add', 'remove']).default('add'),
+  fact: z.string().default(''),
+  action: z.enum(['add', 'remove', 'replace']).default('add'),
+  fact_id: nullableNumber, // ID факта для remove/replace
+  new_fact: nullableString, // новый текст для replace
 });
 
 export const logSchema = z.object({

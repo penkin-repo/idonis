@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Telegraf } from 'telegraf';
 import { message } from 'telegraf/filters';
 import { getOrCreateUser, updateProfileFromText, renderProfile, recordWeight } from '../lib/profile.js';
-import { logEvent } from '../lib/logger.js';
+import { logEvent, processExplicitFacts } from '../lib/logger.js';
 import { buildReport, answerQuestion } from '../lib/analyst.js';
 
 /**
@@ -273,6 +273,21 @@ bot.command('del', async (ctx) => {
   }
 });
 
+// ---------- Intent Router ----------
+
+const FACT_ASSERT_RE = /^(добавь\s+в\s+факты|запомни|факт[:\s]|запиши\s+факт)/i;
+const FACT_ASSERT_TRIGGERS = /\b(вернул(?:ся|ась)?|приехал|уехал|переехал|вышел\s+на\s+работу|на\s+работе|в\s+архангельск|в\s+москв|домой\s+от)\b/i;
+const QUESTION_RE = /^(\?\s|а\s+ты|ты\s+видишь|ты\s+знаешь|ты\s+помнишь|как\s+мне|что\s+мне|сколько|почему|зачем|можешь|стоит\s+ли|нужно\s+ли|ли\s+\w)/i;
+const QUESTION_MARK_RE = /\?/;
+
+type Intent = 'fact_assert' | 'question' | 'log';
+
+function classifyIntent(text: string): Intent {
+  if (FACT_ASSERT_RE.test(text) || FACT_ASSERT_TRIGGERS.test(text)) return 'fact_assert';
+  if (QUESTION_RE.test(text) || QUESTION_MARK_RE.test(text)) return 'question';
+  return 'log';
+}
+
 bot.on(message('text'), async (ctx) => {
   const text = ctx.message.text.trim();
   if (!text || text.startsWith('/')) return;
@@ -286,7 +301,6 @@ bot.on(message('text'), async (ctx) => {
     await ctx.sendChatAction('typing');
 
     if (!user.onboarded) {
-      // Пока профиль не заполнен — трактуем сообщение как рассказ о себе.
       const summary = await updateProfileFromText(user, text);
       const refreshed = await getOrCreateUser(String(ctx.chat.id));
       const tail = refreshed.onboarded
@@ -296,10 +310,23 @@ bot.on(message('text'), async (ctx) => {
       return;
     }
 
-    // Обычный лог образа жизни.
+    const intent = classifyIntent(text);
+
+    if (intent === 'question') {
+      const reply = await answerQuestion(user, text);
+      await ctx.reply(reply, { parse_mode: 'HTML' });
+      return;
+    }
+
+    if (intent === 'fact_assert') {
+      const summary = await processExplicitFacts(user, text);
+      await ctx.reply(`✅ ${summary}`);
+      return;
+    }
+
+    // Дефолт — логер.
     const result = await logEvent(user, text, ctx.message.message_id);
 
-    // Если логер определил, что это вопрос/реплика — маршрутизируем к аналитику.
     if (result.isQuestion) {
       const reply = await answerQuestion(user, text);
       await ctx.reply(reply, { parse_mode: 'HTML' });

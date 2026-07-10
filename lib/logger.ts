@@ -1,4 +1,4 @@
-import { eq, and, gte, lt, like } from 'drizzle-orm';
+import { eq, and, gte, lt, desc } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { logs, facts, type User } from '../db/schema.js';
 import { callStructured } from './openrouter.js';
@@ -8,6 +8,13 @@ import { nowUnix, hintToUnix, periodBounds, formatInTz } from './time.js';
 import { recordWeight } from './profile.js';
 
 const REPEAT_WORDS = /\b(опять|повтор|снова|ещё раз|еще раз)\b/i;
+
+type FactAction = {
+  fact: string;
+  action: 'add' | 'remove' | 'replace';
+  fact_id: number | null;
+  new_fact: string | null;
+};
 
 /**
  * Агент-Логер: записывает события в дневник, извлекает факты о пользователе.
@@ -20,17 +27,32 @@ export async function logEvent(
 ): Promise<{ summary: string; isQuestion: boolean }> {
   const tz = user.tz ?? 'Europe/Moscow';
   const nowStr = formatInTz(nowUnix(), tz, "yyyy-MM-dd'T'HH:mm:ss (EEEE, dd.MM.yyyy)");
+
+  // Загружаем текущие факты с ID для контекста LLM.
+  const currentFacts = await db
+    .select()
+    .from(facts)
+    .where(eq(facts.userId, user.id))
+    .orderBy(desc(facts.createdAt))
+    .limit(30);
+  const factsBlock = currentFacts.length
+    ? currentFacts.map((f) => `[#${f.id}] ${f.fact}`).join('\n')
+    : '(нет фактов)';
+
   const userContent = [
     `ТЕКУЩЕЕ ВРЕМЯ ПОЛЬЗОВАТЕЛЯ: ${nowStr} (TZ: ${tz})`,
     'Используй эту дату для event_time_hint, если пользователь не указал другую.',
+    '',
+    'ТЕКУЩИЕ ФАКТЫ ПОЛЬЗОВАТЕЛЯ (используй ID для remove/replace):',
+    factsBlock,
     '',
     'СООБЩЕНИЕ ПОЛЬЗОВАТЕЛЯ:',
     text,
   ].join('\n');
   const parsed = await callStructured(LOGGER_PROMPT, userContent, logSchema);
 
-  // Обрабатываем факты (add/remove) в любом случае — даже для вопросов.
-  await processFacts(user.id, parsed.spotted_facts);
+  // Обрабатываем факты (add/remove/replace по ID) в любом случае.
+  await processFacts(user.id, parsed.spotted_facts as FactAction[]);
 
   // Если это вопрос — не записываем в дневник.
   if (parsed.is_question) {
@@ -112,40 +134,34 @@ function isSimilarText(a: string, b: string): boolean {
 }
 
 /**
- * Обрабатывает факты: добавляет новые, удаляет устаревшие.
+ * Обрабатывает факты: add/remove/replace по ID.
  */
 async function processFacts(
   userId: number,
-  spottedFacts: { fact: string; action: 'add' | 'remove' }[],
+  spottedFacts: FactAction[],
 ): Promise<void> {
   if (spottedFacts.length === 0) return;
 
   for (const f of spottedFacts) {
     try {
-      if (f.action === 'remove') {
-        // Удаляем факты, содержащие похожий текст.
+      if (f.action === 'remove' && f.fact_id != null) {
         await db
           .delete(facts)
-          .where(
-            and(
-              eq(facts.userId, userId),
-              like(facts.fact, `%${f.fact}%`),
-            ),
-          );
-      } else {
-        // Проверяем, нет ли уже такого факта.
+          .where(and(eq(facts.id, f.fact_id), eq(facts.userId, userId)));
+      } else if (f.action === 'replace' && f.fact_id != null && f.new_fact) {
+        await db
+          .update(facts)
+          .set({ fact: f.new_fact })
+          .where(and(eq(facts.id, f.fact_id), eq(facts.userId, userId)));
+      } else if (f.action === 'add' && f.fact) {
+        // Проверяем, нет ли уже похожего факта.
         const existing = await db
           .select()
           .from(facts)
-          .where(
-            and(
-              eq(facts.userId, userId),
-              like(facts.fact, `%${f.fact}%`),
-            ),
-          )
-          .limit(1);
-
-        if (existing.length === 0) {
+          .where(eq(facts.userId, userId))
+          .limit(50);
+        const dupe = existing.some((e) => isSimilarText(f.fact, e.fact));
+        if (!dupe) {
           await db.insert(facts).values({
             userId,
             fact: f.fact,
@@ -157,4 +173,34 @@ async function processFacts(
       console.error('Failed to process fact:', f, err);
     }
   }
+}
+
+/**
+ * Обработка явного утверждения факта (intent=fact_assert).
+ * Передаёт текущие факты с ID в LLM, получает add/remove/replace по ID.
+ */
+export async function processExplicitFacts(user: User, text: string): Promise<string> {
+  const currentFacts = await db
+    .select()
+    .from(facts)
+    .where(eq(facts.userId, user.id))
+    .orderBy(desc(facts.createdAt))
+    .limit(30);
+
+  const factsBlock = currentFacts.length
+    ? currentFacts.map((f) => `[#${f.id}] ${f.fact}`).join('\n')
+    : '(нет фактов)';
+
+  const userContent = [
+    'ТЕКУЩИЕ ФАКТЫ ПОЛЬЗОВАТЕЛЯ (используй ID для remove/replace):',
+    factsBlock,
+    '',
+    'СООБЩЕНИЕ ПОЛЬЗОВАТЕЛЯ:',
+    text,
+  ].join('\n');
+
+  const parsed = await callStructured(LOGGER_PROMPT, userContent, logSchema);
+  await processFacts(user.id, parsed.spotted_facts as FactAction[]);
+
+  return parsed.summary;
 }
