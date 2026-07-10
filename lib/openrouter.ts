@@ -47,7 +47,7 @@ export async function callStructured<S extends z.ZodTypeAny>(
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userContent },
     ],
-  });
+  }, { timeout: 25_000 });
 
   const raw = completion.choices[0]?.message?.content?.trim();
   if (!raw) {

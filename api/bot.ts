@@ -13,7 +13,7 @@ import { buildReport, answerQuestion } from '../lib/analyst.js';
 
 export const config = {
   runtime: 'nodejs',
-  maxDuration: 30,
+  maxDuration: 60,
 };
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
